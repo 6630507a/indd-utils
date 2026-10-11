@@ -3051,7 +3051,7 @@ the frame's insets differ from its object style's (chunk 0x1B924 at 34,
 compared as a set of four values, since the order of the style's
 fields is not shown) or the style turns the category off. Over the
 trustworthy pairs of the corpus after 2026-10 the converter reproduces
-42,137 of 42,341 `InsetSpacing` values; 133 differ and 71 are missing.
+42,337 of 42,341 `InsetSpacing` values; the 4 that differ are the list exceptions above.
 
 `MinimumFirstBaselineOffset` is 0 on every frame and object style of the
 corpus IDML files, so its field cannot be found. IDML writes it on a
