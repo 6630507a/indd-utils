@@ -69,7 +69,7 @@ Status values:
 | Item | Where | Files | Status | Content and reason | See |
 |---|---|---:|---|---|---|
 | `GuideColor` | chunk 0x3308 of guides | 41 pairs | open: no field found | the u32 at 22 is 6 for guides that IDML colours `Cyan`, `Blue`, `Purple`, `LightBlue` or `BrickRed`; not the layer colour, not `RulerGuidesColor` | `objects.md`, guides |
-| Single-number `InsetSpacing` | chunk 0x3723 of text frames | 161 pairs | open: no field found | one number (the f64 at 0) for some frames, a list for the others; not chosen by equal insets, the style or the version | `objects.md`, text frame preferences |
+| `InsetSpacing` list exceptions | chunk 0x3723 of text frames | 2 pairs | open: not explained | 4 frames of 5 straight points that IDML writes as a list, although a frame that is not a plain rectangle has one number | `objects.md`, text frame preferences |
 | `KnockedOut` exceptions | attribute 0x1EB6F | 3 | open: not explained | 380 items that store nothing, style `false`, and no IDML value | `transparency.md`, drop shadow knockout |
 | Group corner radii | `Group` | 3 | open: not explained | groups of versions 10 to 12 with only `CornerRadius` and `TopLeftCornerRadius`, although every child has all four | `attributes.md`, groups |
 | `OverprintFill` of groups | `Group` | 82 pairs | open: not explained | 75 groups have a child without the attribute; not written on groups | `attributes.md`, groups |

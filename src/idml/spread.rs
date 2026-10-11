@@ -150,45 +150,22 @@ fn frame_always(name: &str, major: u32) -> bool {
     }
 }
 
-/// Whether `paths` is a plain rectangle: one path of straight segments
-/// whose points, without repeated points and points between two others
-/// on a horizontal or vertical side, are the corners of a rectangle along
-/// the axes of the frame's inner coordinates (objects.md, text frame
-/// preferences).
+/// Whether `paths` is a plain rectangle: one path of exactly four
+/// straight points joined by horizontal and vertical sides in the frame's
+/// inner coordinates (objects.md, text frame preferences).
 fn plain_rectangle(paths: &[Path]) -> bool {
     let [path] = paths else {
         return false;
     };
-    if !path
-        .points
-        .iter()
-        .all(|p| p.left == p.anchor && p.right == p.anchor)
-    {
-        return false;
-    }
     // The coordinates of one side can differ in the last digit.
     let eq = |a: f64, b: f64| (a - b).abs() <= 1e-4;
-    let mut pts: Vec<(f64, f64)> = path.points.iter().map(|p| p.anchor).collect();
-    while pts.len() >= 4 {
-        let n = pts.len();
-        let extra = (0..n).find(|&i| {
-            let (a, b, c) = (pts[(i + n - 1) % n], pts[i], pts[(i + 1) % n]);
-            (eq(a.0, b.0) && eq(a.1, b.1))
-                || (eq(a.0, b.0) && eq(b.0, c.0))
-                || (eq(a.1, b.1) && eq(b.1, c.1))
-        });
-        match extra {
-            Some(i) => {
-                pts.remove(i);
-            }
-            None => break,
-        }
-    }
-    // Four corners, none repeated or on a side, joined by horizontal and
-    // vertical sides, are those of a rectangle.
+    let pts = &path.points;
     pts.len() == 4
+        && pts
+            .iter()
+            .all(|p| p.left == p.anchor && p.right == p.anchor)
         && (0..4).all(|i| {
-            let (a, b) = (pts[i], pts[(i + 1) % 4]);
+            let (a, b) = (pts[i].anchor, pts[(i + 1) % 4].anchor);
             eq(a.0, b.0) || eq(a.1, b.1)
         })
 }
@@ -445,7 +422,8 @@ impl Writer<'_> {
             |id: u32| style.is_none_or(|s| !s.enabled.as_ref().is_some_and(|on| on.contains(&id)));
         let footnote_options = self.frame_footnote_options(p, style, off(0xADCA));
         let baseline = self.frame_baseline_grid(p, style, off(0xADC8));
-        // Before DOM 11 the insets follow the rule of the general
+        // Before DOM 11 a frame that is not a plain rectangle always has
+        // insets; those of a plain rectangle follow the rule of the general
         // attributes: written where they differ from the style's, in any
         // order, or the style turns the category off (objects.md, text
         // frame preferences).
@@ -454,6 +432,7 @@ impl Writer<'_> {
             v
         };
         let insets = major >= 11
+            || !plain
             || off(0x1B93E)
             || style.is_some_and(|s| sorted(s.insets.unwrap_or([0.0; 4])) != sorted(p.inset));
         // Before DOM 11 IDML gives a frame without values no element.
@@ -470,10 +449,11 @@ impl Writer<'_> {
                     text: Some(num(v)),
                     children: Vec::new(),
                 };
-                // Equal insets of a frame that is not a plain rectangle
-                // are one number (objects.md, text frame preferences).
-                let node = if !plain && p.inset.iter().all(|&v| v == top) {
-                    item("InsetSpacing", top)
+                // A frame that is not a plain rectangle has one number,
+                // whatever its four insets (objects.md, text frame
+                // preferences).
+                let node = if !plain {
+                    item("InsetSpacing", p.inset_single)
                 } else {
                     Node {
                         tag: "InsetSpacing".into(),
@@ -1801,7 +1781,7 @@ mod tests {
     }
 
     #[test]
-    fn plain_rectangles_allow_repeated_and_side_points() {
+    fn plain_rectangles_have_exactly_four_points() {
         let path = |pts: &[(f64, f64)]| {
             vec![Path {
                 points: pts
@@ -1818,15 +1798,24 @@ mod tests {
         };
         let rect = [(0.0, 0.0), (10.0, 0.0), (10.0, 5.0), (0.0, 5.0)];
         assert!(plain_rectangle(&path(&rect)));
-        // A point on a side, a repeated corner, a last digit apart.
+        // Corners a last digit apart.
         assert!(plain_rectangle(&path(&[
+            (0.0, 0.0),
+            (10.0, 1e-9),
+            (10.0, 5.0),
+            (1e-9, 5.0),
+        ])));
+        // A point on a side, a repeated first point.
+        assert!(!plain_rectangle(&path(&[
             (0.0, 0.0),
             (4.0, 0.0),
             (10.0, 0.0),
             (10.0, 5.0),
-            (10.0, 5.0),
-            (1e-9, 5.0),
+            (0.0, 5.0),
         ])));
+        let mut closed = rect.to_vec();
+        closed.push(rect[0]);
+        assert!(!plain_rectangle(&path(&closed)));
         // A rotated rectangle, a triangle, a crossed path.
         assert!(!plain_rectangle(&path(&[
             (0.0, 0.0),

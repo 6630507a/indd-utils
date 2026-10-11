@@ -2977,7 +2977,9 @@ wrong or extra value (`FirstBaselineOffset` 2,731 of 2,731,
 
 The frame itself (class 0x6201) holds the inset spacing in chunk 0x3723
 (44 bytes): f64, u32, then four f64 (left, top, right, bottom). IDML
-writes `InsetSpacing` as a list of top, left, bottom and right.
+writes `InsetSpacing` as a list of top, left, bottom and right, or as
+the f64 at offset 0 (below). A frame without the chunk has 0 for all
+five.
 
 Evidence over the text frames of the trustworthy pairs that the
 converter writes (`TextFramePreference` values reproduced): the
@@ -2995,37 +2997,56 @@ each. Without chunk 0x22646 the IDML has width 1 and `Color/Black`
 column rule and footnote settings are written from the versions in
 which IDML has them (`idml-values.md`).
 
-`InsetSpacing`: IDML writes it as a list where the frame is a plain rectangle and as one number
-(`<InsetSpacing type="unit">15</InsetSpacing>`) where it is not and the
-four insets are equal. A plain rectangle is a frame whose path (as
-written in `PathGeometry`) is one path of straight points (both
-direction points on the anchor) whose points, without repeated points
-and points between two others on a horizontal or vertical side, are the
-four corners of a rectangle along the axes of the frame's inner
-coordinates (coordinates compared to 1e-4 pt), and whose corner options
-in effect (its own `TopLeftCornerOption` to `BottomRightCornerOption`,
-else its object style's along `BasedOn`) are all `None`. Chunk 0x3723
-holds no shape flag: its u32 at offset 8 is a UID (the frame's UID plus
-a few in most frames). Evidence over the text frames of the trustworthy
-pairs (except `own/`):
+`InsetSpacing`: IDML writes it as a list where the frame is a plain
+rectangle and as one number (`<InsetSpacing type="unit">15</InsetSpacing>`)
+where it is not. A plain rectangle is a frame whose path (as written in
+`PathGeometry`) is one path of exactly four straight points (both
+direction points on the anchor), each sharing its x or y coordinate with
+the next (compared to 1e-4 pt), so that they are the corners of a
+rectangle along the axes of the frame's inner coordinates, and whose
+corner options in effect (its own `TopLeftCornerOption` to
+`BottomRightCornerOption`, else its object style's along `BasedOn`) are
+all `None`. Chunk 0x3723 holds no shape flag: its u32 at offset 8 is a
+UID (the frame's UID plus a few in most frames). Evidence over the text
+frames of the trustworthy pairs (except `own/`), in spreads, master
+spreads and stories (anchored frames):
 
-| Frame | List | One number |
-|---|---|---|
-| Plain rectangle, no corner option of its own | 40,194 | 4 |
-| Rectangle with a corner option | 0 | 580 (564 `RoundedCorner`, 11 `BevelCorner`, 3 `FancyCorner`, 2 `InverseRoundedCorner`) |
-| Curved path | 0 | 170 |
-| Straight path that is no rectangle (2 to 32 points, 131 of them quadrilaterals not along the axes) | 8 | 242 |
+| Frame | List | One number | None |
+|---|---|---|---|
+| Plain rectangle | 40,603 | 0 | 6,551 (DOM 7 to 10) |
+| Four-point rectangle with a corner option in effect | 0 | 584 | 0 |
+| Curved path | 0 | 771 | 0 |
+| Straight path of 2 or 3 points | 0 | 29 | 0 |
+| Straight path of 4 points, not along the axes | 0 | 131 | 0 |
+| Straight path of 5 to 7 points | 4 | 77 | 0 |
+| Straight path of 9 to 32 points | 0 | 124 | 0 |
 
-The 4 plain rectangles with one number take their corner options from
-their object styles (2 `RoundedCorner`, 2 `InverseRoundedCorner`). Of the 8
-lists, 4 frames have corners whose coordinates differ in the last digit
-(-2395.597908385931 and -2395.597908385932) and 4 have an extra point on
-a side (5 points). All 993 frames with one number have four equal
-insets. IDML files of DOM 7 to 10 have the one-number form too (170 of
-the 1,175 `InsetSpacing` elements of the pairs of those versions).
+The tolerance matters: 4 plain rectangles have corners whose coordinates
+differ in the last digit (-2395.597908385931 and -2395.597908385932),
+and IDML writes them as lists. A path with more than four points is not
+a plain rectangle even when its extra points add no corner: 32 of the 77
+frames with 5 to 7 straight points reduce to a rectangle once repeated
+points and points on a side are removed (a closed path that repeats its
+first point at the end, open paths that repeat the first point, a
+7-point path with 3 extra points on one side, a 6-point path with an
+extra point on the bottom side), and all 77 are one number (29 with 5
+points, 34 with 6, 14 with 7). The 4 lists among them are exceptions,
+all with 5 points: 3 copies of one frame in one document, and one frame
+whose closing point differs from its first by 3.5e-15.
 
-From DOM 11 every frame has `InsetSpacing`. Before DOM 11 it
-follows the rule of the general category below: IDML writes it where
+The one number is the f64 at offset 0 of chunk 0x3723, whatever the
+four insets are, equal or not. In one DOM 15 document, 101 anchored
+star-shaped frames (10 points) have 0 at offset 0 and four insets of 9,
+and two curved frames (44 and 28 points) have 0 at offset 0 and insets
+of 36, 0, 25.2 and 0; IDML writes `0` for all 103. In every other
+one-number frame of the trustworthy pairs the f64 at offset 0 equals
+the four insets.
+
+From DOM 11 every frame has `InsetSpacing`. Before DOM 11 a frame
+that is not a plain rectangle always has it: all 200 such frames of the
+trustworthy pairs of DOM 7 to 10 (one number: 0, 4, 4.94, 5 or 15). For
+a plain rectangle it follows the rule of the general category below
+(857 frames with it, 6,551 without): IDML writes it where
 the frame's insets differ from its object style's (chunk 0x1B924 at 34,
 compared as a set of four values, since the order of the style's
 fields is not shown) or the style turns the category off. Over the

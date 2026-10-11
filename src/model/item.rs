@@ -519,6 +519,9 @@ pub struct TextFramePreferences {
     pub baseline_rgb: Option<[f64; 3]>,
     /// Inset spacing (the frame's chunk 0x3723): top, left, bottom, right.
     pub inset: [f64; 4],
+    /// The f64 at 0 of the frame's chunk 0x3723: the inset spacing of a
+    /// frame that is not a plain rectangle.
+    pub inset_single: f64,
     /// A frame grid (chunk 0xCD41 starts with u16 1).
     pub frame_grid: bool,
 }
@@ -710,12 +713,12 @@ impl<'a> Reader<'a> {
         };
         // The frame's chunk 0x3723: f64, u32, then four f64: left, top,
         // right, bottom.
-        let inset = match self.chunk(frame, chunk::FRAME_INSET)? {
+        let (inset, inset_single) = match self.chunk(frame, chunk::FRAME_INSET)? {
             Some(d) if d.len() >= 44 => {
                 let f = |at| self.enc().f64_at(&d, at).unwrap_or(0.0);
-                [f(20), f(12), f(36), f(28)]
+                ([f(20), f(12), f(36), f(28)], f(0))
             }
-            _ => [0.0; 4],
+            _ => ([0.0; 4], 0.0),
         };
         Ok(Some(TextFramePreferences {
             column_count: self.cursor(&cols).u32()?,
@@ -749,6 +752,7 @@ impl<'a> Reader<'a> {
             baseline_grid,
             baseline_rgb,
             inset,
+            inset_single,
             frame_grid: self
                 .chunk(mcf, chunk::FRAME_GRID)?
                 .and_then(|d| self.enc().u16_at(&d, 0))
