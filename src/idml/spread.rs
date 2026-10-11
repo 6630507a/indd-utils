@@ -264,7 +264,14 @@ impl Writer<'_> {
         if paths.is_empty() {
             return;
         }
-        x.start("Properties").start("PathGeometry");
+        x.start("Properties");
+        Self::path_geometry_element(x, paths);
+        x.end();
+    }
+
+    /// The `PathGeometry` element of `paths`, without `Properties`.
+    pub(super) fn path_geometry_element(x: &mut Xml, paths: &[Path]) {
+        x.start("PathGeometry");
         for p in paths {
             x.start("GeometryPathType")
                 .attr("PathOpen", p.open.to_string());
@@ -281,7 +288,7 @@ impl Writer<'_> {
             }
             x.end().end();
         }
-        x.end().end();
+        x.end();
     }
 
     /// `TextFramePreference` of a text frame. IDML writes an attribute
@@ -562,8 +569,16 @@ impl Writer<'_> {
             }
         }
         x.attr("TextWrapMode", mode);
-        x.start("Properties")
-            .empty("TextWrapOffset", &text_wrap_offsets(wrap));
+        x.start("Properties");
+        // IDML has the wrap path only when it is custom (objects.md, text
+        // wrap); the schema puts it before `TextWrapOffset`.
+        if let Some(w) = wrap
+            && w.mode != wrap_mode::NONE
+            && !w.custom_path.is_empty()
+        {
+            Self::path_geometry_element(x, &w.custom_path);
+        }
+        x.empty("TextWrapOffset", &text_wrap_offsets(wrap));
         x.end();
         if let Some(c) = contour
             && let Some(t) = contour_type(c.kind)
@@ -1702,6 +1717,7 @@ mod tests {
     use super::*;
     use crate::Encoding;
     use crate::header::{ByteOrder, Version};
+    use crate::model::PathPoint;
 
     #[test]
     fn stroke_categories_turn_off_their_own_attributes() {
@@ -1748,6 +1764,8 @@ mod tests {
             offsets: [1.0, 2.0, 3.0, 4.0],
             master_flag: 0,
             side: 5,
+            path_uid: 0,
+            custom_path: Vec::new(),
         };
         let mut x = Xml::new();
         Writer::text_wrap_preference(&mut x, Some(&wrap), None);
@@ -1756,6 +1774,30 @@ mod tests {
         assert!(out.contains("ApplyToMasterPageOnly=\"true\" TextWrapSide=\"LargestArea\""));
         assert!(out.contains("<TextWrapOffset Top=\"2\" Left=\"1\" Bottom=\"4\" Right=\"3\" />"));
         assert!(!out.contains("ContourOption"));
+        assert!(!out.contains("PathGeometry"));
+
+        // A custom wrap path comes first in `Properties`.
+        let pt = |a| PathPoint {
+            anchor: a,
+            left: a,
+            right: a,
+            kind: 2,
+        };
+        let path = Path {
+            points: vec![pt((0.0, 0.0)), pt((1.5, 0.0)), pt((1.5, 2.0))],
+            open: false,
+        };
+        let custom = TextWrap {
+            custom_path: vec![path],
+            ..wrap
+        };
+        let mut x = Xml::new();
+        Writer::text_wrap_preference(&mut x, Some(&custom), None);
+        let out = x.finish();
+        let at = out.find("<PathGeometry>").unwrap();
+        assert!(out.find("<Properties>").unwrap() < at);
+        assert!(out[at..].contains("<PathPointType Anchor=\"1.5 2\""));
+        assert!(out.find("</PathGeometry>").unwrap() < out.find("<TextWrapOffset").unwrap());
     }
 
     #[test]

@@ -273,6 +273,12 @@ pub struct TextWrap {
     /// The u16 at offset 42: the `TextWrapSide` code (`TEXT_WRAP_SIDES`
     /// of the writer).
     pub side: u16,
+    /// The u32 at offset 4: the wrap path object (class 0x3702), 0 for
+    /// none.
+    pub path_uid: u32,
+    /// The wrap path when its object is flagged custom; empty otherwise
+    /// and for object styles.
+    pub custom_path: Vec<Path>,
 }
 
 /// A list of keys with string values (chunk 0x1E22B): u32 count; per
@@ -856,7 +862,37 @@ impl<'a> Reader<'a> {
     /// u32 contour path object, four f64 offsets, u16 master page flag,
     /// u16 side.
     pub(super) fn text_wrap(&self, uid: u32) -> Result<Option<TextWrap>, Error> {
-        self.wrap_chunk(uid, chunk::TEXT_WRAP)
+        let mut wrap = self.wrap_chunk(uid, chunk::TEXT_WRAP)?;
+        if let Some(w) = &mut wrap {
+            w.custom_path = self.custom_wrap_path(uid, w.path_uid)?;
+        }
+        Ok(wrap)
+    }
+
+    /// The paths (chunk 0x162B) of wrap path object `path` when chunk
+    /// 0x3709 flags it custom (u16 at offset 8 = 1); see
+    /// `docs/format/objects.md`, text wrap. A path that cannot be read is
+    /// left out with a warning.
+    fn custom_wrap_path(&self, uid: u32, path: u32) -> Result<Vec<Path>, Error> {
+        if path == 0 || self.class(path) != Some(class::TEXT_WRAP_PATH) {
+            return Ok(Vec::new());
+        }
+        let Some(d) = self.chunk(path, chunk::TEXT_WRAP_PATH_INFO)? else {
+            return Ok(Vec::new());
+        };
+        if d.len() != 10 || self.cursor(&d[8..]).u16()? != 1 {
+            return Ok(Vec::new());
+        }
+        match self.paths(path) {
+            Ok(mut paths) => {
+                paths.retain(|p| !p.points.is_empty());
+                Ok(paths)
+            }
+            Err(e) => {
+                self.warn(format!("item {uid}: text wrap path not read ({e})"));
+                Ok(Vec::new())
+            }
+        }
     }
 
     /// A text wrap record in chunk `id` of object `uid`.
@@ -869,7 +905,7 @@ impl<'a> Reader<'a> {
         }
         let mut c = self.cursor(&d);
         let mode = c.u32()?;
-        c.skip(4)?;
+        let path_uid = c.u32()?;
         let offsets = [c.f64()?, c.f64()?, c.f64()?, c.f64()?];
         let master_flag = c.u16()?;
         let side = c.u16()?;
@@ -886,6 +922,8 @@ impl<'a> Reader<'a> {
             offsets,
             master_flag,
             side,
+            path_uid,
+            custom_path: Vec::new(),
         }))
     }
 

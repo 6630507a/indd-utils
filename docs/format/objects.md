@@ -1205,8 +1205,46 @@ chunk 0x3703 (44 bytes):
 | 40 | u16 master page flag: 1 `ApplyToMasterPageOnly="false"`, 0 `true` |
 | 42 | u16 `TextWrapSide`: 0 `BothSides`, 1 `LeftSide`, 2 `RightSide`, 3 `SideTowardsSpine`, 4 `SideAwayFromSpine`, 5 `LargestArea` |
 
-The wrap path object holds the contour as path geometry (chunk 0x162B,
-as for page items) and names the item in chunk 0x3709.
+**Wrap path.** Every item with wrap mode 1, 2, 3 or 6 (and the codes
+0x10003 and 0x10006) has a wrap path object; mode 0 items have none
+(9,061 objects in 735 files of the corpus of 2026-10). The u32 at 4
+equals the object's UID in 8,824 of the 8,824 objects whose owner was
+found. Its chunks:
+
+| Chunk | Contents |
+|---|---|
+| 0x162B | Path geometry, the layout of page items. Parses in 8,846 of the 8,846 little-endian objects that have it; 18 have none |
+| 0x3709 | 10 bytes: u32 UID of the item (9,061 of 9,061), u32 0 (9,061 of 9,061), u16 custom path flag |
+| 0x2C0B, 0x2C2D, 0x377A | On 4,813 of 9,061; not read |
+
+IDML writes the path as `TextWrapPreference/Properties/PathGeometry`,
+before `TextWrapOffset`, only when the custom path flag is 1. Over the
+2,342 IDML wrap elements that have a wrap path object (1,412 in
+trustworthy pairs):
+
+| u16 at 8 of 0x3709 | IDML `PathGeometry` | All pairs | Trustworthy |
+|---|---|---|---|
+| 1 | present | 35 of 35 | 32 of 32 |
+| 0 | absent | 2,307 of 2,307 | 1,380 of 1,380 |
+
+The 35 are 28 polygons (22 `BoundingBoxTextWrap`, 6 `Contour`), one
+rectangle, one group, one text frame (`JumpObjectTextWrap`) and 4 images
+(`Contour`). In all 35 the IDML paths equal the 0x162B paths: number of
+paths (1 to 3), point count, `Anchor`, `LeftDirection` and
+`RightDirection` from the point's anchor, left and right, and `PathOpen`
+from the u16 after the points (0 `false`). The numbers are the same
+(tolerance 1e-6), so no transform applies: the path is in the item's
+inner coordinates, those of its own `PathGeometry` or, for a placed
+graphic, of its `GraphicBounds` (before the graphic's `ItemTransform`).
+It already includes the wrap offsets: the path of an image with a 8.5 pt
+top offset and a scale of 0.40885 extends 20.79 (8.5 / 0.40885) beyond
+the graphic bounds on each side.
+
+With flag 0 the object still stores a path: for frames and groups the
+item's path bounding box grown by the offsets (1,538 of 1,538 cases
+compared; in about 500 more the box is also grown by 0.25 to 1.5 pt on
+each side), for contour wraps of images the computed contour. IDML omits
+these, and the converter writes the path only for flag 1.
 
 Placed graphics also have chunk 0x373D, the contour (IDML
 `ContourOption`). See "Contour" below.

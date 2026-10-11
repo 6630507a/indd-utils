@@ -92,6 +92,8 @@ pub mod class {
     /// The page item attribute list that items take the attributes
     /// they do not store from (chunk 0x6E03).
     pub const ITEM_BASE: u32 = 0x6E02;
+    /// The wrap path of an item's text wrap (chunk 0x3703 at offset 4).
+    pub const TEXT_WRAP_PATH: u32 = 0x3702;
 }
 
 /// Chunk IDs.
@@ -294,6 +296,8 @@ pub mod chunk {
     pub const PDF_DATA: u32 = 0x2521;
     pub const SWATCH_NAME: u32 = 0x1F30;
     pub const TEXT_WRAP: u32 = 0x3703;
+    /// Of a wrap path: u32 owner item, u32 0, u16 custom path flag.
+    pub const TEXT_WRAP_PATH_INFO: u32 = 0x3709;
     pub const CONTOUR_OPTION: u32 = 0x373D;
     pub const CLIPPING_PATH: u32 = 0x2C1A;
     /// Image properties: record list (pixels, colour space, resolution).
