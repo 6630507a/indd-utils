@@ -1069,6 +1069,11 @@ impl Writer<'_> {
                     .attr("AppliedCellStylePriority", "0");
             }
             self.story_ranges(x, &c.runs, story, &cell_id);
+            // IDML writes a graphic cell's item like a nested item,
+            // without `Locked` (tables.md).
+            for item in &c.items {
+                self.page_item(x, item, true, &Matrix::IDENTITY);
+            }
             // Deleted text owned by the cell's terminator, which no range
             // holds, ends the cell (objects.md, tracked changes).
             if let Some(r) = c.runs.last()

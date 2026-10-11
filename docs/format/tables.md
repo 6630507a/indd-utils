@@ -88,8 +88,8 @@ flag-0 sets (one pair, 8 tables) could not be read before.
 
 Every grid position has an ID. A position whose attribute is 0xB666
 starts a text cell (its ID is the cell ID); attribute 0x10469 starts a
-graphic cell (22 cells, one stale pair; IDML
-`CellType="GraphicTypeCell"`). Every other position is covered by a
+graphic cell (45 cells in 6 pairs; IDML `CellType="GraphicTypeCell"`;
+see "Graphic cells" below). Every other position is covered by a
 merged cell: attribute 0xB614 (779 positions in the pairs, no values), or
 no record at all, when a row record has fewer attribute records than the
 row has positions (80 positions; the missing ones are the last).
@@ -142,6 +142,42 @@ DOM 16 pair, the last three rows of each table, which are overset.
 `CellType="TextTypeCell"` is on every text cell from DOM 11 (11,097 of
 11,097 cells of the trustworthy pairs) and on none before (0 of 453 cells
 of DOM 8 and 10).
+
+### Graphic cells
+
+A graphic cell holds a page item instead of text. In IDML the item is
+the only child of the `Cell`, written like an item nested in another
+page item: with its own `ItemTransform` and children (`Image`, `Link`
+and so on), without `Locked`.
+
+The 0x10469 record of the grid position has two values. The first
+(ID 0xB6EF) is 76 bytes; the u32 at byte 70 is the UID of a graphic
+cell object (class 0x1046B). The rest of the value is not used. The
+graphic cell object has:
+
+| Chunk | Contents |
+|---|---|
+| 0x10466 | u32 own UID, u32 0, then a UID list: the cell's page items |
+| 0x22E01 | u32 row, u32 column of the cell |
+| 0x117 | u32 table UID |
+| 0x22E12 | u32 (not identified) |
+
+The page item's chunk 0x15B names the graphic cell object as both its
+spread and its parent.
+
+Evidence: 62 graphic cells in 11 files (6 with IDML, 5 without). Each has a 76-byte first value whose u32 at byte 70 names a
+class 0x1046B object; its chunk 0x10466 starts with its own UID and 0
+and lists one item (62 of 62), of class 0x6201, whose chunk 0x15B names
+the object twice (62 of 62). In the 6 pairs (45 cells: 13 in 3 trustworthy pairs, 32 in 3 stale
+pairs) the listed item is the `Rectangle` child of the IDML `Cell` in 45
+of 45, chunk 0x22E01 is the cell's row and column (`Name`) in 45 of 45,
+and chunk 0x117 is the table in 45 of 45. No `Locked` appears on the 45
+cell items.
+
+The `Cell` element of a graphic cell follows the rules of the other
+cells: the text insets and `ClipContentToTextCell` in effect, the edges,
+and the attributes of its attribute set ("Cell formatting" below). None
+of the 45 IDML cells has graphic insets. The converter's `Cell` attributes equal the IDML ones on 45 of 45 cells.
 
 ## Values in effect
 

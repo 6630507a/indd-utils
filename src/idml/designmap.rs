@@ -946,7 +946,7 @@ impl Writer<'_> {
     }
 
     /// UIDs of the page items written: on spreads and master spreads, in
-    /// groups and anchored in stories.
+    /// groups, anchored in stories and in graphic cells.
     pub(super) fn written_items(&self) -> std::collections::HashSet<u32> {
         let doc = self.doc;
         let mut out = std::collections::HashSet::new();
@@ -959,6 +959,13 @@ impl Writer<'_> {
                 doc.stories
                     .iter()
                     .flat_map(|s| s.anchors.values().flatten()),
+            )
+            .chain(
+                doc.stories
+                    .iter()
+                    .flat_map(|s| s.tables.values())
+                    .flat_map(|t| &t.cells)
+                    .flat_map(|c| &c.items),
             )
             .collect();
         while let Some(item) = stack.pop() {

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use super::{Attrs, Reader, TextRun, Value};
+use super::{Attrs, PageItem, Reader, TextRun, Value};
 use crate::Error;
 use crate::audit::{List, Recorder};
 use crate::object::{Cursor, Encoding};
@@ -15,6 +15,8 @@ pub mod class {
     pub const TABLE: u32 = 0xB608;
     /// Owns the cell strand (row groups with cell records).
     pub const CELL_STRAND_OWNER: u32 = 0xB606;
+    /// The content of a graphic cell.
+    pub const GRAPHIC_CELL: u32 = 0x1046B;
 }
 
 pub mod chunk {
@@ -37,6 +39,8 @@ pub mod chunk {
     pub const TABLE_STYLE_ROOT_CHILDREN: u32 = 0x104E5;
     /// u16 table direction: 0 left to right, 1 right to left.
     pub const TABLE_DIRECTION: u32 = 0x50F65;
+    /// Page items of a graphic cell object: u32, u32, UID list.
+    pub const GRAPHIC_CELL_ITEMS: u32 = 0x10466;
 }
 
 /// Attribute IDs in table data.
@@ -47,7 +51,8 @@ pub mod attr {
     /// A grid position that starts a text cell; its second value is the
     /// cell's layout record.
     pub const CELL: u32 = 0xB666;
-    /// A grid position that starts a graphic cell.
+    /// A grid position that starts a graphic cell; the u32 at byte 70 of
+    /// its first value is the graphic cell object.
     pub const GRAPHIC_CELL: u32 = 0x10469;
     /// A grid position covered by a merged cell.
     pub const COVERED: u32 = 0xB614;
@@ -81,6 +86,8 @@ pub struct Cell {
     /// that was never laid out.
     pub width: Option<f64>,
     pub runs: Vec<TextRun>,
+    /// The page items of a graphic cell.
+    pub items: Vec<PageItem>,
     /// The cell's attribute set (index into `Table::formats`), if it has
     /// one.
     pub format: Option<usize>,
@@ -242,6 +249,8 @@ struct Position {
     starts: Option<CellKind>,
     /// Text area width of the layout record of a text cell.
     width: Option<f64>,
+    /// The graphic cell object of a graphic cell.
+    content: Option<u32>,
     /// Attribute set, an index into the table's formats.
     format: Option<usize>,
 }
@@ -353,7 +362,14 @@ impl Reader<'_> {
             },
         );
 
-        let cells = cells_from_grid(&grid);
+        let mut cells = cells_from_grid(&grid);
+        // Cells are in the order of the positions that start them.
+        let contents = grid.iter().flatten().filter(|p| p.starts.is_some());
+        for (cell, pos) in cells.iter_mut().zip(contents) {
+            if let Some(content) = pos.content {
+                cell.items = self.graphic_cell_items(content)?;
+            }
+        }
         let grid = grid
             .into_iter()
             .map(|row| row.into_iter().map(|p| p.format).collect())
@@ -380,6 +396,19 @@ impl Reader<'_> {
             formats,
             grid,
         })
+    }
+
+    /// The page items of a graphic cell object (class 0x1046B), listed in
+    /// its chunk 0x10466 (tables.md).
+    fn graphic_cell_items(&self, content: u32) -> Result<Vec<PageItem>, Error> {
+        if self.class(content) != Some(class::GRAPHIC_CELL) {
+            return Ok(Vec::new());
+        }
+        let mut items = Vec::new();
+        for child in self.children(content, chunk::GRAPHIC_CELL_ITEMS)? {
+            items.extend(self.page_item(child, None)?);
+        }
+        Ok(items)
     }
 
     /// Grid positions by row, from the cell strand's row groups, and the
@@ -462,7 +491,9 @@ impl Reader<'_> {
                         .into_iter()
                         .enumerate()
                         .map(|(k, id)| {
-                            let (aid, value) = raw.get(k).map_or((0, &[][..]), |(a, v)| (*a, v));
+                            let (aid, values) =
+                                raw.get(k).map_or((0, &[][..]), |(a, v)| (*a, &v[..]));
+                            let value = |i: usize| values.get(i).map_or(&[][..], Vec::as_slice);
                             Position {
                                 id,
                                 starts: match aid {
@@ -471,7 +502,10 @@ impl Reader<'_> {
                                     _ => None,
                                 },
                                 width: (aid == attr::CELL)
-                                    .then(|| layout_width(self.enc(), value))
+                                    .then(|| layout_width(self.enc(), value(1)))
+                                    .flatten(),
+                                content: (aid == attr::GRAPHIC_CELL)
+                                    .then(|| self.enc().u32_at(value(0), 70))
                                     .flatten(),
                                 format: formats.get(k).copied(),
                             }
@@ -485,8 +519,11 @@ impl Reader<'_> {
     }
 }
 
-/// Attribute records keeping the raw payload of their second value.
-fn raw_attrs(c: &mut Cursor, n: usize) -> Result<Vec<(u32, Vec<u8>)>, Error> {
+/// An attribute ID and the raw payload of each of its values.
+type RawAttr = (u32, Vec<Vec<u8>>);
+
+/// Attribute records keeping the raw payload of each value.
+fn raw_attrs(c: &mut Cursor, n: usize) -> Result<Vec<RawAttr>, Error> {
     let enc = c.encoding();
     let mut out = Vec::with_capacity(n);
     for _ in 0..n {
@@ -494,19 +531,16 @@ fn raw_attrs(c: &mut Cursor, n: usize) -> Result<Vec<(u32, Vec<u8>)>, Error> {
         let size = c.u16()? as usize;
         let payload = c.bytes(size)?;
         let mut p = enc.cursor(payload);
-        let mut second = Vec::new();
+        let mut values = Vec::new();
         if size >= 2 {
             let count = p.u16()?;
-            for i in 0..count {
+            for _ in 0..count {
                 p.u32()?;
                 let len = p.u16()? as usize;
-                let data = p.bytes(len)?;
-                if i == 1 {
-                    second = data.to_vec();
-                }
+                values.push(p.bytes(len)?.to_vec());
             }
         }
-        out.push((id, second));
+        out.push((id, values));
     }
     Ok(out)
 }
@@ -547,6 +581,7 @@ fn cells_from_grid(grid: &[Vec<Position>]) -> Vec<Cell> {
                 kind,
                 width: pos.width,
                 runs: Vec::new(),
+                items: Vec::new(),
                 format: pos.format,
             });
         }
@@ -928,6 +963,7 @@ mod tests {
             id,
             starts: (id != 0).then_some(CellKind::Text),
             width,
+            content: None,
             format: None,
         };
         // Cell 1 is 20 wide (two columns of 10) and covers the row below;

@@ -2143,6 +2143,7 @@ mod tests {
             kind: CellKind::Text,
             width: None,
             runs: Vec::new(),
+            items: Vec::new(),
             format: Some(0),
         };
         let t = Table {

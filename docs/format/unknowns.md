@@ -82,7 +82,7 @@ Status values:
 | Unlinked images without chunk 0x8C23 | placed graphics | 25 pairs | open: no field found | IDML has `Contents` (362 values); the bytes were not located | `objects.md`, graphics pasted without a link |
 | EPS `Contents` that differ | placed graphics | – | open: not examined | 18 of 515 | `objects.md`, graphics pasted without a link |
 | Anchored settings of some nested items | `AnchoredObjectSetting` | 3 | open: not examined | 388 values | `objects.md`, items inside an anchored item |
-| Graphic cells, `FlexObject`, story links, media posters | page items | 20–28 pairs | open: not decoded | structures not written | |
+| `FlexObject`, story links, media posters | page items | 20–28 pairs | open: not decoded | structures not written | |
 | Export attributes of 10.0 files exported by 10.2 | `ObjectExportOption` | 4 | not needed | the attribute set follows the exporting version, which the INDD does not record | `idml-values.md`, export options |
 | `CustomImageSizeOption` | `ObjectExportOption` | 224 | not needed | IDML value not in the schema; left out on purpose | `idml-values.md`, export options |
 
