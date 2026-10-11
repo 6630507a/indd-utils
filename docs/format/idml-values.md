@@ -158,7 +158,8 @@ where the INDD gives no value:
 
 The other story values are read from the INDD: `StoryTitle`,
 `StoryDirection` and the optical margin from story chunks, with the
-value of every story without the chunk when it is absent (`objects.md`,
+value of every story without the chunk when it is absent, and for the
+optical margin size the value of the text size unit (`objects.md`,
 story settings); `IsEndnoteStory` from the story class (`footnotes.md`);
 `AppliedTOCStyle` from chunk 0x8C40.
 

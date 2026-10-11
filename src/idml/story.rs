@@ -197,17 +197,25 @@ impl Writer<'_> {
         }
     }
 
+    /// Whether `ViewPreference` `TextSizeMeasurementUnits` is `Q`.
+    fn text_size_in_q(&self) -> bool {
+        self.doc.prefs.values.iter().any(|v| {
+            v.element == "ViewPreference" && v.name == "TextSizeMeasurementUnits" && v.value == "Q"
+        })
+    }
+
     pub(super) fn story(&self, s: &Story) -> String {
         let mut x = Xml::new();
         self.package_root(&mut x, "Story");
         self.story_start(&mut x, "Story", s);
         // Optical margin and direction from the story's chunks; without
-        // them, the values every story without the chunks has (objects.md,
-        // stories).
+        // them, the values every story without the chunks has, and a size
+        // of 13 Q where text sizes are in Q (objects.md, stories).
         let (size, alignment) = match s.settings.optical_margin {
             Some((size, 1)) => (num(size), Some("true")),
             Some((size, 0)) => (num(size), Some("false")),
             Some((size, _)) => (num(size), None),
+            None if self.text_size_in_q() => ("9.2125984251969".into(), Some("false")),
             None => ("12".into(), Some("false")),
         };
         let direction = match s.settings.direction {

@@ -2138,11 +2138,26 @@ pairs, 18,610 stories):
 |---|---|---|---|---|
 | 0xA44C | flag byte (1 for a built-in key), in-object string | `Story` `StoryTitle` (`$ID/` and the key for flag 1) | `$ID/` | 18,610 of 18,610 (30 with a name) |
 | 0x50F96 | u16: 1 | `StoryPreference` `StoryDirection="RightToLeftDirection"` | `LeftToRightDirection` | 18,610 of 18,610 (780 right to left, 10 documents) |
-| 0x2EE (16 bytes) | u16 at 0; f64 at 2; u16 at 10 (not identified); u16 at 12 (1 `true`); u16 at 14 | `StoryPreference` `StoryOrientation` (u16 at 0: 0 `Horizontal`, 1 `Vertical`), `OpticalMarginSize`, `OpticalMarginAlignment`, `FrameType` (u16 at 14: 0 `TextFrameType`, 1 `FrameGridType`) | 12, `false`, `Horizontal`, `TextFrameType` | alignment 18,610 of 18,610; size 18,601 of 18,610; orientation and frame type below |
+| 0x2EE (16 bytes) | u16 at 0; f64 at 2; u16 at 10 (not identified); u16 at 12 (1 `true`); u16 at 14 | `StoryPreference` `StoryOrientation` (u16 at 0: 0 `Horizontal`, 1 `Vertical`), `OpticalMarginSize`, `OpticalMarginAlignment`, `FrameType` (u16 at 14: 0 `TextFrameType`, 1 `FrameGridType`) | 12 (13 Q where text sizes are in Q, below), `false`, `Horizontal`, `TextFrameType` | alignment 18,610 of 18,610; size below; orientation and frame type below |
 
-The 9 other sizes are stories in DOM 16 and 20 documents with 9.2126 in
-IDML and no chunk; not explained. Another value of the direction or
-alignment u16 leaves the attribute out.
+`OpticalMarginSize` over the 37,156 stories of the 1,252 trustworthy
+pairs of 2026-10 (DOM 8.1 to 21):
+
+| Story | Stories | IDML `OpticalMarginSize` |
+|---|---:|---|
+| with chunk 0x2EE | 3,805 | the f64 at 2 (all) |
+| no chunk, `TextSizeMeasurementUnits` `Points` | 32,979 | 12 (all) |
+| no chunk, `TextSizeMeasurementUnits` `Q` | 372 (76 pairs) | `9.2125984251969` (13 Q, all) |
+
+The Q documents are DOM 12.1, 13, 16.2, 18 and 20.3. The text size
+unit is the u32 at 12 of preferences chunk 0x1202 (`preferences.md`,
+view). The size of new frames in the preferences is not the
+source: in 3 pairs it differs from the stories without the chunk. Two
+DOM 8.1 pairs in points have 13 Q in the preferences and 12 in their
+13 stories; one DOM 16.2 pair in Q has 12 in the preferences and 13 Q
+in its 3 stories. The text size unit gives the story value in all
+three. Another value of the direction or alignment u16 leaves the
+attribute out.
 
 Orientation and frame type, over the
 28,669 stories of all corpus pairs (stale pairs included), with chunk

@@ -329,7 +329,9 @@ and `FrameType="TextFrameType"` (1,263 of 1,263), but
 text size unit separates them: without the chunk IDML has
 `OpticalMarginSize="9.2125984251969"` (13 Q, written with these digits)
 when `ViewPreference` `TextSizeMeasurementUnits` is `Q` (chunk 0x1202,
-above), and `12` otherwise. The converter writes the size by this rule:
+above), and `12` otherwise. Stories without their chunk 0x2EE follow
+the same rule (`objects.md`, story settings). The converter writes the
+size by this rule:
 1,251 of 1,251 values in the trustworthy pairs of the corpus after
 2026-10 (1,079 of them without the chunk).
 
