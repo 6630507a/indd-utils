@@ -65,7 +65,10 @@ GUID.
 
 ### Observed in the corpus
 
-- Every file has exactly one contiguous object: the XMP metadata packet.
+- Every file has exactly one contiguous object: the XMP metadata packet,
+  except one InDesign 3.0 file (of 44 distinct 3.0 files in the corpus of
+  2026-10), which has no contiguous object and no XMP. It converts; the
+  conversion needs nothing from the XMP.
 - Its class ID field is `0xC0000000` (327 files) or `0xE0000000` (25 files).
 - The XMP object's data is a u32 packet length (in the file's byte order),
   equal to the data length minus 4, followed by the packet starting with

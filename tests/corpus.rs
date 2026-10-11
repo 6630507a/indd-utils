@@ -108,10 +108,14 @@ fn every_corpus_container_has_xmp() {
         .iter()
         .filter_map(|p| {
             let bytes = std::fs::read(p).ok()?;
-            let result = indd::Container::parse(&bytes).and_then(|c| c.xmp());
+            let result = indd::Container::parse(&bytes)
+                .and_then(|c| Ok((c.contig_objects().next().is_some(), c.xmp()?)));
             match result {
-                Ok(Some(_)) => None,
-                Ok(None) => Some(format!("{}: no XMP", p.display())),
+                Ok((_, Some(_))) => None,
+                // One InDesign 3.0 file has no contiguous object at all
+                // (docs/format/container.md).
+                Ok((false, None)) => None,
+                Ok((true, None)) => Some(format!("{}: no XMP", p.display())),
                 Err(e) if known_unreadable(&e) => None,
                 Err(e) => Some(format!("{}: {e}", p.display())),
             }
