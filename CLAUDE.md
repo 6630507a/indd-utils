@@ -109,7 +109,7 @@ separately (rule and evidence: `docs/measurement.md`).
   DesignCraft and compare both with the PDF (R) page by page. A vs B
   measures the converter, R vs A the renderer (`docs/measurement.md`,
   "Render comparison"). DesignCraft is not in this repo: build
-  `designcraft-cli` from the sibling `~/aiongg/designcraft` checkout
+  `designcraft-cli` from the `~/aiongg/craft-apps/designcraft` checkout
   (branch `next`). Run after `cargo build --release`; output in
   `target/render-compare/`.
 - `indd audit <file>`: what the converter does not read in one document
