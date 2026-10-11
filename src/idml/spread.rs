@@ -150,6 +150,49 @@ fn frame_always(name: &str, major: u32) -> bool {
     }
 }
 
+/// Whether `paths` is a plain rectangle: one path of straight segments
+/// whose points, without repeated points and points between two others
+/// on a horizontal or vertical side, are the corners of a rectangle along
+/// the axes of the frame's inner coordinates (objects.md, text frame
+/// preferences).
+fn plain_rectangle(paths: &[Path]) -> bool {
+    let [path] = paths else {
+        return false;
+    };
+    if !path
+        .points
+        .iter()
+        .all(|p| p.left == p.anchor && p.right == p.anchor)
+    {
+        return false;
+    }
+    // The coordinates of one side can differ in the last digit.
+    let eq = |a: f64, b: f64| (a - b).abs() <= 1e-4;
+    let mut pts: Vec<(f64, f64)> = path.points.iter().map(|p| p.anchor).collect();
+    while pts.len() >= 4 {
+        let n = pts.len();
+        let extra = (0..n).find(|&i| {
+            let (a, b, c) = (pts[(i + n - 1) % n], pts[i], pts[(i + 1) % n]);
+            (eq(a.0, b.0) && eq(a.1, b.1))
+                || (eq(a.0, b.0) && eq(b.0, c.0))
+                || (eq(a.1, b.1) && eq(b.1, c.1))
+        });
+        match extra {
+            Some(i) => {
+                pts.remove(i);
+            }
+            None => break,
+        }
+    }
+    // Four corners, none repeated or on a side, joined by horizontal and
+    // vertical sides, are those of a rectangle.
+    pts.len() == 4
+        && (0..4).all(|i| {
+            let (a, b) = (pts[i], pts[(i + 1) % 4]);
+            eq(a.0, b.0) || eq(a.1, b.1)
+        })
+}
+
 /// `AutoSizingReferencePoint` codes of frames and object styles.
 pub(super) const POINTS: [&str; 9] = [
     "TopLeftPoint",
@@ -296,11 +339,14 @@ impl Writer<'_> {
     /// value differs from the style's, apart from a few attributes it
     /// always writes (objects.md, text frame preferences). `style` is the
     /// applied style's values; without a style every value is written.
+    /// `plain` is whether the frame is a plain rectangle without a corner
+    /// option.
     pub(super) fn text_frame_preference(
         &self,
         x: &mut Xml,
         p: &TextFramePreferences,
         style: Option<&applied::StyleValues>,
+        plain: bool,
     ) {
         let v = self.doc.version;
         let major = v.major;
@@ -418,22 +464,27 @@ impl Writer<'_> {
             }
             if insets {
                 let [top, left, bottom, right] = p.inset;
-                let item = |v: f64| Node {
-                    tag: "ListItem".into(),
+                let item = |tag: &str, v: f64| Node {
+                    tag: tag.into(),
                     attrs: vec![("type".into(), "unit".into())],
                     text: Some(num(v)),
                     children: Vec::new(),
                 };
-                Self::properties_with(
-                    x,
-                    &[],
-                    &[Node {
+                // Equal insets of a frame that is not a plain rectangle
+                // are one number (objects.md, text frame preferences).
+                let node = if !plain && p.inset.iter().all(|&v| v == top) {
+                    item("InsetSpacing", top)
+                } else {
+                    Node {
                         tag: "InsetSpacing".into(),
                         attrs: vec![("type".into(), "list".into())],
                         text: None,
-                        children: vec![item(top), item(left), item(bottom), item(right)],
-                    }],
-                );
+                        children: [top, left, bottom, right]
+                            .map(|v| item("ListItem", v))
+                            .into(),
+                    }
+                };
+                Self::properties_with(x, &[], &[node]);
             }
             x.end();
         }
@@ -906,7 +957,12 @@ impl Writer<'_> {
             ..
         } = &item.kind
         {
-            self.text_frame_preference(x, p, applied.as_deref());
+            let plain = plain_rectangle(&item.paths)
+                && self
+                    .values_in_effect(item)
+                    .iter()
+                    .all(|(n, v, _)| !n.ends_with("CornerOption") || v == "None");
+            self.text_frame_preference(x, p, applied.as_deref(), plain);
         }
         let frame = matches!(
             item.kind,
@@ -1742,6 +1798,56 @@ mod tests {
         // Fill and both stroke categories off.
         assert!(category_off("StrokeType", &[]));
         assert!(category_off("FillTint", &[]));
+    }
+
+    #[test]
+    fn plain_rectangles_allow_repeated_and_side_points() {
+        let path = |pts: &[(f64, f64)]| {
+            vec![Path {
+                points: pts
+                    .iter()
+                    .map(|&a| PathPoint {
+                        anchor: a,
+                        left: a,
+                        right: a,
+                        kind: 2,
+                    })
+                    .collect(),
+                open: false,
+            }]
+        };
+        let rect = [(0.0, 0.0), (10.0, 0.0), (10.0, 5.0), (0.0, 5.0)];
+        assert!(plain_rectangle(&path(&rect)));
+        // A point on a side, a repeated corner, a last digit apart.
+        assert!(plain_rectangle(&path(&[
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (10.0, 0.0),
+            (10.0, 5.0),
+            (10.0, 5.0),
+            (1e-9, 5.0),
+        ])));
+        // A rotated rectangle, a triangle, a crossed path.
+        assert!(!plain_rectangle(&path(&[
+            (0.0, 0.0),
+            (4.0, 3.0),
+            (1.0, 7.0),
+            (-3.0, 4.0)
+        ])));
+        assert!(!plain_rectangle(&path(&rect[..3])));
+        assert!(!plain_rectangle(&path(&[
+            (0.0, 0.0),
+            (10.0, 5.0),
+            (10.0, 0.0),
+            (0.0, 5.0)
+        ])));
+        // A curved side, two paths.
+        let mut curved = path(&rect);
+        curved[0].points[1].right = (12.0, 2.0);
+        assert!(!plain_rectangle(&curved));
+        let mut two = path(&rect);
+        two.extend(path(&rect));
+        assert!(!plain_rectangle(&two));
     }
 
     #[test]

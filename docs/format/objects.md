@@ -2995,10 +2995,35 @@ each. Without chunk 0x22646 the IDML has width 1 and `Color/Black`
 column rule and footnote settings are written from the versions in
 which IDML has them (`idml-values.md`).
 
-`InsetSpacing`: 16,560 of 18,091 frames. IDML gives 870 frames a single
-number instead of a list (the first f64 of chunk 0x3723 in most of
-them); what decides this was not found, and the converter writes the
-list. From DOM 11 every frame has `InsetSpacing`. Before DOM 11 it
+`InsetSpacing`: 16,560 of 18,091 frames. IDML writes it as a list
+where the frame is a plain rectangle and as one number
+(`<InsetSpacing type="unit">15</InsetSpacing>`) where it is not and the
+four insets are equal. A plain rectangle is a frame whose path (as
+written in `PathGeometry`) is one path of straight points (both
+direction points on the anchor) whose points, without repeated points
+and points between two others on a horizontal or vertical side, are the
+four corners of a rectangle along the axes of the frame's inner
+coordinates (coordinates compared to 1e-4 pt), and whose corner options
+in effect (its own `TopLeftCornerOption` to `BottomRightCornerOption`,
+else its object style's along `BasedOn`) are all `None`. Chunk 0x3723
+holds no shape flag: its u32 at offset 8 is a UID (the frame's UID plus
+a few in most frames). Evidence over the text frames of the trustworthy
+pairs (except `own/`):
+
+| Frame | List | One number |
+|---|---|---|
+| Plain rectangle, no corner option of its own | 40,194 | 4 |
+| Rectangle with a corner option | 0 | 580 (564 `RoundedCorner`, 11 `BevelCorner`, 3 `FancyCorner`, 2 `InverseRoundedCorner`) |
+| Curved path | 0 | 170 |
+| Straight path that is no rectangle (2 to 32 points, 131 of them quadrilaterals not along the axes) | 8 | 242 |
+
+The 4 plain rectangles with one number take a corner option from their
+object style (one has `InverseRoundedCorner` from its style). Of the 8
+lists, 4 frames have corners whose coordinates differ in the last digit
+(-2395.597908385931 and -2395.597908385932) and 4 have an extra point on
+a side (5 points). All 993 frames with one number have four equal
+insets. IDML files of DOM 7 to 10 have the one-number form too (170 of
+the 1,175 `InsetSpacing` elements of the pairs of those versions). From DOM 11 every frame has `InsetSpacing`. Before DOM 11 it
 follows the rule of the general category below: IDML writes it where
 the frame's insets differ from its object style's (chunk 0x1B924 at 34,
 compared as a set of four values, since the order of the style's
