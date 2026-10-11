@@ -103,6 +103,15 @@ separately (rule and evidence: `docs/measurement.md`).
   (package entries compared byte for byte), plus differences in failures
   and warnings. Takes about a minute. A refactoring must show 0 differing
   outputs. Full list: `~/.cache/indd-diff/diff.tsv`.
+- `python3 -I tools/render_compare.py --designcraft PATH [--jobs N]
+  [--file SUBSTR]`: for corpus documents with a same-save InDesign PDF,
+  render the reference IDML (A) and the converter's IDML (B) with
+  DesignCraft and compare both with the PDF (R) page by page. A vs B
+  measures the converter, R vs A the renderer (`docs/measurement.md`,
+  "Render comparison"). DesignCraft is not in this repo: build
+  `designcraft-cli` from the sibling `~/aiongg/designcraft` checkout
+  (branch `next`). Run after `cargo build --release`; output in
+  `target/render-compare/`.
 - `indd audit <file>`: what the converter does not read in one document
   (classes, chunks, attribute IDs, unknown codes, strand kinds) and its
   warnings. `python3 -I tools/audit_corpus.py --exclude own/` ranks these
