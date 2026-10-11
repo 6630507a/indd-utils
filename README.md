@@ -158,12 +158,12 @@ privately held samples:
 
 | Measure | Result |
 |---|---|
-| Conversion failures | 0 of 1,460 paired files; 0 of 4,303 other files |
-| Rejected files | 0 of 1,460 paired files; 22 of 4,303 other files (11 not INDD files, 8 InDesign 1.x files, 2 truncated, 1 without an object database) |
+| Conversion failures | 0 of 1,462 paired files; 0 of 4,509 other files |
+| Rejected files | 0 of 1,462 paired files; 22 of 4,509 other files (11 not INDD files, 8 InDesign 1.x files, 2 truncated, 1 without an object database) |
 | Schema validation failures | 0 paired files, 12 other files |
-| Value coverage, trustworthy pairs | 99.48 % (28,801,363 of 28,951,232 values) |
+| Value coverage, trustworthy pairs | 99.48 % (28,806,735 of 28,956,611 values) |
 | Value coverage, all pairs | 98.25 % |
-| Story text, trustworthy pairs | 37,147 of 37,150 stories exact, 3 differ, 0 missing |
+| Story text, trustworthy pairs | 37,153 of 37,156 stories exact, 3 differ, 0 missing |
 <!-- numbers:end -->
 
 
