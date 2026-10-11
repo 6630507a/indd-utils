@@ -160,7 +160,8 @@ pub(super) fn kanji_digits(n: u32) -> String {
 }
 
 /// The name of each document page: its number (see `page_numbers`) in
-/// its section's style (objects.md, master spread names and sections).
+/// its section's style, after the section prefix if the section includes
+/// it (objects.md, master spread names and sections).
 pub(super) fn page_names(doc: &Document) -> Vec<String> {
     let numbers = page_numbers(doc);
     let mut out: Vec<String> = numbers.iter().map(u32::to_string).collect();
@@ -172,10 +173,13 @@ pub(super) fn page_names(doc: &Document) -> Vec<String> {
             numbering::SINGLE_LEADING_ZEROS => single_leading_zeros,
             numbering::DOUBLE_LEADING_ZEROS => double_leading_zeros,
             numbering::LOWER_LETTERS => lower_letter,
-            _ => continue,
+            _ => |n| n.to_string(),
         };
         for i in (first..first + length).filter(|&i| numbers[i] > 0) {
             out[i] = name(numbers[i]);
+            if s.include_prefix {
+                out[i].insert_str(0, &s.prefix);
+            }
         }
     }
     out
@@ -193,7 +197,9 @@ pub(super) fn page_sections(doc: &Document) -> Vec<(Section, u32)> {
     out
 }
 
-/// The number shown on each document page, from the sections. Pages
+/// The number shown on each document page, from the sections. The
+/// section at the first page starts at its start number even when it
+/// continues numbering (from the previous document of a book). Pages
 /// not covered by a section are numbered by their position.
 pub(super) fn page_numbers(doc: &Document) -> Vec<u32> {
     let count = document_pages(doc).len();
@@ -202,7 +208,7 @@ pub(super) fn page_numbers(doc: &Document) -> Vec<u32> {
     for (s, first, length) in section_ranges(doc) {
         let mut number = match next {
             Some(n) if s.continue_numbering => n,
-            None if s.continue_numbering => first as u32 + 1,
+            None if s.continue_numbering && first > 0 => first as u32 + 1,
             _ => s.start,
         };
         for n in out.iter_mut().skip(first).take(length) {
@@ -236,6 +242,7 @@ mod tests {
             uid,
             page,
             continue_numbering,
+            include_prefix: false,
             start,
             style: numbering::ARABIC,
             prefix: String::new(),
@@ -274,6 +281,14 @@ mod tests {
         let mut doc = doc;
         doc.sections[0].style = numbering::LOWER_ROMAN;
         assert_eq!(page_names(&doc), ["i", "ii", "1", "2", "3", "4"]);
+        // The first section starts at its start number even when it
+        // continues numbering; a section that includes its prefix puts
+        // it before each page name.
+        doc.sections[0].start = 5;
+        doc.sections[2].prefix = "B-".into();
+        doc.sections[2].include_prefix = true;
+        assert_eq!(page_numbers(&doc), [5, 6, 1, 2, 3, 4]);
+        assert_eq!(page_names(&doc), ["v", "vi", "B-1", "B-2", "3", "4"]);
     }
 
     #[test]

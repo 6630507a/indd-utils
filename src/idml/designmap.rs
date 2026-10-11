@@ -409,9 +409,9 @@ impl Writer<'_> {
             x.start("Section")
                 .attr("Self", uref(Some(section.uid)))
                 .attr("Length", length.to_string())
-                .attr("Name", "")
+                .attr("Name", &section.prefix)
                 .attr("ContinueNumbering", section.continue_numbering.to_string())
-                .attr("IncludeSectionPrefix", "false")
+                .attr("IncludeSectionPrefix", section.include_prefix.to_string())
                 .attr("Marker", &section.marker)
                 .attr("PageStart", uref(Some(pages[first])));
             if doc.version.major >= 8

@@ -1492,13 +1492,14 @@ impl Writer<'_> {
                     item("enumeration", style.into())
                 },
                 item("boolean", s.continue_numbering.to_string()),
-                item("boolean", "false".into()),
+                item("boolean", s.include_prefix.to_string()),
                 item("long", number.to_string()),
             ];
             if self.doc.version.major >= 20 {
                 items.push(item("long", number.to_string()));
             }
-            items.push(item("string", s.marker.clone()));
+            // A return in the marker is a paragraph separator here.
+            items.push(item("string", s.marker.replace('\r', "\u{2029}")));
             props.push(Node {
                 tag: "Descriptor".into(),
                 attrs: vec![("type".into(), "list".into())],

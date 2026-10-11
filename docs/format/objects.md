@@ -2845,7 +2845,8 @@ Section chunk 0x4C02:
 | u32 | Page number start (`PageNumberStart`) |
 | u32 | Page number style: 0x4C15 = `Arabic`, 0x4C17 = `LowerRoman`, 0x4C12 = `Kanji`, 0x4C13 = `DoubleLeadingZeros`, 0x4C16 = `UpperRoman`, 0x4C19 = `LowerLetters`, 0x4C1A = `SingleLeadingZeros` (below) |
 | u32 | Continue numbering (1 = true, `ContinueNumbering`) |
-| u32 | Not identified |
+| u16 | 0 in every chunk |
+| u16 | Include section prefix (1 = true, `IncludeSectionPrefix`) |
 | u8 flag, string | `AlternateLayout`: the string, with `$ID/` before it if the flag is 1 |
 
 In the 546 sections of the trustworthy pairs, 539 chunks have all these
@@ -2853,6 +2854,18 @@ fields; the prefix, marker and alternate layout equal the IDML values in
 539 of 539 (417 named layouts such as `Letter V`, 82 empty, 40 `$ID/`).
 The 7 shorter chunks are in DOM 7 and 8 files and end after the second
 u32 above.
+
+**Include section prefix.** Over the 1,345 sections of the 1,252
+trustworthy pairs after 2026-10, 1,336 chunks have the u16 pair after
+continue numbering. The first u16 is 0 in all of them. The second is 1
+in all 11 sections with IDML `IncludeSectionPrefix="true"` (10 distinct
+files) and 0 in all 1,325 with `false`. The other 9 chunks, one each in
+9 DOM 7 files, end before the field; IDML gives them `false`.
+
+**Section name.** IDML `Name` equals `SectionPrefix` in all 1,345
+sections: 15 sections in 14 distinct files have a prefix, and 1,330
+have an empty prefix and an empty name. The prefix does not depend on
+`IncludeSectionPrefix` (9 of the 15 include it, 6 do not).
 
 **Alternate layouts.** A section with a layout name (not empty and not
 `$ID/`) starts an alternate layout, and so does the first section.
@@ -2865,11 +2878,19 @@ in IDML from DOM 8 on. Over the trustworthy pairs the converted
 
 **Page descriptor.** A document page has a `Descriptor` property, a list
 of the section prefix, the page number style, `ContinueNumbering`,
-`false`, the page number and the marker; from DOM 20 on the page number
-is in the list twice. Over the trustworthy pairs: 7,800 of 7,924 pages;
-64 others are in sections with a style the converter does not know (IDML
-gives it as an empty string), and the converter leaves their descriptor
-out. The fourth item is `IncludeSectionPrefix`, false in every sample.
+`IncludeSectionPrefix`, the page number and the marker; from DOM 20 on
+the page number is in the list twice. Over the trustworthy pairs: 7,800
+of 7,924 pages; 64 others are in sections with a style the converter
+does not know (IDML gives it as an empty string), and the converter
+leaves their descriptor out.
+
+In the descriptor, a return (U+000D) in the marker is a paragraph
+separator (U+2029); the section's `Marker` attribute keeps the return.
+Over the 15,855 pages of the trustworthy pairs after 2026-10, 568 pages
+(6 distinct files) are in sections whose marker ends with a return, and
+their descriptors end with U+2029 in its place (568 of 568). No marker
+has a return elsewhere. 1,080 pages have a marker without a return,
+which the descriptor repeats as it is, and 14,207 have an empty marker.
 
 Evidence:
 
@@ -2923,7 +2944,19 @@ The converter writes `PageNumberStyle` for the seven codes and leaves it
 out (with a warning) for other codes.
 
 The converter names document pages by their number in their section,
-counting on from the previous section when numbering continues. In a
+counting on from the previous section when numbering continues. The
+section at the document's first page starts at its page number start
+even when it continues numbering: the document continues the numbering
+of a book. Over the 1,252 trustworthy pairs after 2026-10, the IDML
+page number of the first page equals that field in 1,252 of 1,252,
+including 18 documents (18 distinct files) whose first section
+continues numbering from a start above 1. The 49 later sections that
+continue numbering count on from the previous section (49 of 49), though
+41 store another start. In a section with `IncludeSectionPrefix`, the
+page name is the section prefix followed by the number: `2-1`, `2-2`
+for prefix `2-`, and `1장_01` for a prefix `1장_` and style 0x4C1A.
+After these rules, page names and descriptors equal the IDML values on
+15,855 of 15,855 pages of those pairs. In a
 section with style 0x4C17 it writes the number in lower-case Roman (i,
 ii, iii), as in the PDF labels above, and in a section with style 0x4C12
 in Chinese digits, as the folios show. No pair shows IDML page names in

@@ -199,6 +199,8 @@ pub struct Section {
     /// starts at the first page of the document.
     pub page: Option<u32>,
     pub continue_numbering: bool,
+    /// `IncludeSectionPrefix`: page names start with the prefix.
+    pub include_prefix: bool,
     pub start: u32,
     /// Page number style code (see `numbering`).
     pub style: u32,
@@ -300,6 +302,7 @@ impl<'a> Reader<'a> {
             uid,
             page: None,
             continue_numbering: true,
+            include_prefix: false,
             start: 1,
             style: numbering::ARABIC,
             prefix: String::new(),
@@ -307,8 +310,8 @@ impl<'a> Reader<'a> {
             alternate_layout: None,
         };
         // u8, string (prefix), u8, string (marker), u32 first page, u32
-        // page number start, u32 numbering style, u32 continue, u32, then
-        // u8 and string (alternate layout).
+        // page number start, u32 numbering style, u32 continue, u16 0, u16
+        // include prefix, then u8 and string (alternate layout).
         if let Some(d) = self.chunk(uid, chunk::SECTION_INFO)? {
             let mut c = self.cursor(&d);
             let parsed = (|| -> Result<(String, String, [u32; 4]), Error> {
@@ -326,7 +329,8 @@ impl<'a> Reader<'a> {
                 section.prefix = prefix;
                 section.marker = marker;
                 section.alternate_layout = (|| -> Result<(u8, String), Error> {
-                    c.u32()?;
+                    c.u16()?;
+                    section.include_prefix = c.u16()? != 0;
                     let flag = c.flag()?;
                     Ok((flag, c.string()?))
                 })()
