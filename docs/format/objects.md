@@ -2087,6 +2087,39 @@ Each record starts with a u32 run length in UTF-16 code units. Text
 records continue with text segments. Style records continue with the
 style UID.
 
+**Paragraph-style records and paragraph ranges.** Counts are over the
+INDD files of the 1,252 trustworthy pairs and the 37,156 stories that
+both IDMLs have.
+
+- Every paragraph-style record ends at a paragraph end (U+000D):
+  87,496 of 87,496 records.
+- After its text attribute list (`attributes.md`), a paragraph-style
+  record has a u16 count and that many u32 values. In 82,842 of the
+  87,496 records they are the lengths of the record's paragraphs, in
+  order, and add up to the run length. In the other 4,654 some values
+  have high bits set (for example 0x10000F74). The converter does not
+  read these values.
+- IDML starts a `ParagraphStyleRange` at every paragraph-style record,
+  also between neighbouring records with the same style and the same
+  decoded attributes. There are 2,496 such boundaries in 459 stories:
+  913 between two data objects of the strand and 1,583 within one. 153
+  of them are between records whose bytes after the run length are
+  identical. Other rules split a record's range further (XML elements,
+  `xml.md`; tracked changes, below).
+- With one range per record, the text lengths of the non-empty
+  paragraph ranges equal the reference in 37,133 of 37,156 stories,
+  including 455 of the 459 stories with equal neighbours. No story
+  has more ranges than the reference. Merging neighbours with equal
+  formatting matches 36,810 stories. Of the 23 other stories, 3 have
+  different text and 20 have ranges that the reference splits inside
+  one record (`unknowns.md`, resources and text).
+- Character-style records with the same style and decoded attributes
+  are neighbours only across a data-object boundary: 3,288 boundaries
+  in 533 stories, none within one data object. IDML splits there too.
+  The converter writes a `CharacterStyleRange` per character-style
+  record (and further cuts), and the character range lengths equal the
+  reference in 525 of these 533 stories and in 37,112 of all 37,156.
+
 **Stories outside the document's list.** The document's story list does
 not name the stories of text frames anchored in the XML backing story.
 IDML writes them like the others and lists them at the end of

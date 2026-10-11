@@ -321,6 +321,7 @@ mod tests {
         assert_eq!(runs[1].paragraph_style, Some(10));
         assert_eq!(runs[1].character_style, Some(21));
         assert_eq!(runs[2].paragraph_style, Some(11));
+        assert_eq!((runs[1].paragraph_run, runs[2].paragraph_run), (0, 1));
     }
 
     #[test]

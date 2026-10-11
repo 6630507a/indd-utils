@@ -1270,10 +1270,10 @@ impl Writer<'_> {
     }
 }
 
-/// The paragraph formatting of a run: runs with the same one share a
-/// paragraph range.
-fn para_of(t: &TextRun) -> (Option<u32>, &crate::model::Attrs) {
-    (t.paragraph_style, &t.paragraph_attrs)
+/// The paragraph formatting of a run and its paragraph-style record: runs
+/// with the same ones share a paragraph range.
+fn para_of(t: &TextRun) -> (Option<u32>, &crate::model::Attrs, usize) {
+    (t.paragraph_style, &t.paragraph_attrs, t.paragraph_run)
 }
 
 /// `runs` with each run that holds one of `cuts` strictly inside split
@@ -1355,6 +1355,7 @@ mod tests {
             character_style: style,
             paragraph_attrs: Attrs::default(),
             character_attrs: Attrs::default(),
+            paragraph_run: 0,
         };
         let story = Story {
             uid: 9,
@@ -1430,6 +1431,7 @@ mod tests {
             character_style: style,
             paragraph_attrs: Attrs::default(),
             character_attrs: Attrs::default(),
+            paragraph_run: 0,
         };
         let inserted = |start, len| ChangeRun {
             start,
@@ -1531,6 +1533,7 @@ mod tests {
                 character_style: None,
                 paragraph_attrs: Attrs::default(),
                 character_attrs: Attrs::default(),
+                paragraph_run: 0,
             }],
             anchors: Default::default(),
             tables: Default::default(),
@@ -1613,7 +1616,21 @@ mod tests {
             character_style: character,
             paragraph_attrs: Default::default(),
             character_attrs: Default::default(),
+            paragraph_run: paragraph.unwrap_or(0) as usize,
         }
+    }
+
+    #[test]
+    fn starts_a_paragraph_range_at_every_paragraph_style_record() {
+        let mut runs = vec![
+            text_run(0, "a\r", Some(1), None),
+            text_run(2, "b\r", Some(1), None),
+            text_run(4, "c\r", Some(1), None),
+        ];
+        runs[2].paragraph_run = 2;
+        let doc = Document::default();
+        let out = Writer::for_test(&doc).story(&xml_story(runs, &[]));
+        assert_eq!(out.matches("<ParagraphStyleRange").count(), 2, "{out}");
     }
 
     #[test]

@@ -18,6 +18,10 @@ pub struct TextRun {
     pub paragraph_attrs: Attrs,
     /// Local character formatting.
     pub character_attrs: Attrs,
+    /// Index of the paragraph-style run record that holds the run. IDML
+    /// starts a paragraph range at every record, even between records with
+    /// the same formatting (objects.md, stories).
+    pub paragraph_run: usize,
 }
 
 /// An index marker: a page reference (class 0x13006) owned by a U+FEFF.
@@ -241,11 +245,11 @@ pub(super) fn split_runs(
     }
     cuts.sort_unstable();
     cuts.dedup();
-    let run_at = |list: &[StyleRun], at: usize| -> Option<(Option<u32>, Attrs)> {
+    let run_at = |list: &[StyleRun], at: usize| -> Option<(Option<u32>, Attrs, usize)> {
         let mut pos = 0;
-        for (len, style, attrs) in list {
+        for (k, (len, style, attrs)) in list.iter().enumerate() {
             if at < pos + len {
-                return Some((uid_or_none(*style), attrs.clone()));
+                return Some((uid_or_none(*style), attrs.clone(), k));
             }
             pos += len;
         }
@@ -254,8 +258,9 @@ pub(super) fn split_runs(
     cuts.windows(2)
         .filter(|w| w[0] < w[1])
         .map(|w| {
-            let (paragraph_style, paragraph_attrs) = run_at(para, w[0]).unwrap_or_default();
-            let (character_style, character_attrs) = run_at(chars, w[0]).unwrap_or_default();
+            let (paragraph_style, paragraph_attrs, paragraph_run) =
+                run_at(para, w[0]).unwrap_or_default();
+            let (character_style, character_attrs, _) = run_at(chars, w[0]).unwrap_or_default();
             TextRun {
                 start: w[0],
                 text: String::from_utf16_lossy(&utf16[w[0]..w[1]]),
@@ -263,6 +268,7 @@ pub(super) fn split_runs(
                 character_style,
                 paragraph_attrs,
                 character_attrs,
+                paragraph_run,
             }
         })
         .collect()

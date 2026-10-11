@@ -63,6 +63,8 @@ Status values:
 | Saving edition rule exceptions | tints, users, endnote and index titles | 9 | not needed | the IDML was exported by another edition than the one that saved the INDD (one trustworthy document, 8 stale pairs) | `objects.md`, saving edition |
 | `ColorGroup` `Self` | `ColorGroup` | 2 | open: not examined | 6 extra values: groups whose `Self` differs from the one the DOM version gives | `objects.md`, colour groups |
 | Order of stories outside the story list | `StoryList` | 2 pairs | open: not explained | IDML lists them in another order than text order | `objects.md`, stories |
+| Paragraph ranges split inside one record | `ParagraphStyleRange` | 17 | open: not explained | 20 stories have 41 range boundaries inside one paragraph-style record, with the same attributes on both sides: 36 at a paragraph end, 5 before a paragraph's U+000D. Examples: every paragraph of a table-of-contents story whose paragraphs hold a hyperlink source; a final empty paragraph. No stored value was found that marks these positions | `objects.md`, stories |
+| Character ranges split inside one record | `CharacterStyleRange` | 28 | open: not explained | 39 stories have character range boundaries inside one character-style record, with the same attributes on both sides | `objects.md`, stories |
 
 ## Page items
 
