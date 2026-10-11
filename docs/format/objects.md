@@ -2995,8 +2995,7 @@ each. Without chunk 0x22646 the IDML has width 1 and `Color/Black`
 column rule and footnote settings are written from the versions in
 which IDML has them (`idml-values.md`).
 
-`InsetSpacing`: 16,560 of 18,091 frames. IDML writes it as a list
-where the frame is a plain rectangle and as one number
+`InsetSpacing`: IDML writes it as a list where the frame is a plain rectangle and as one number
 (`<InsetSpacing type="unit">15</InsetSpacing>`) where it is not and the
 four insets are equal. A plain rectangle is a frame whose path (as
 written in `PathGeometry`) is one path of straight points (both
@@ -3017,22 +3016,21 @@ pairs (except `own/`):
 | Curved path | 0 | 170 |
 | Straight path that is no rectangle (2 to 32 points, 131 of them quadrilaterals not along the axes) | 8 | 242 |
 
-The 4 plain rectangles with one number take a corner option from their
-object style (one has `InverseRoundedCorner` from its style). Of the 8
+The 4 plain rectangles with one number take their corner options from
+their object styles (2 `RoundedCorner`, 2 `InverseRoundedCorner`). Of the 8
 lists, 4 frames have corners whose coordinates differ in the last digit
 (-2395.597908385931 and -2395.597908385932) and 4 have an extra point on
 a side (5 points). All 993 frames with one number have four equal
 insets. IDML files of DOM 7 to 10 have the one-number form too (170 of
-the 1,175 `InsetSpacing` elements of the pairs of those versions). From DOM 11 every frame has `InsetSpacing`. Before DOM 11 it
+the 1,175 `InsetSpacing` elements of the pairs of those versions).
+
+From DOM 11 every frame has `InsetSpacing`. Before DOM 11 it
 follows the rule of the general category below: IDML writes it where
 the frame's insets differ from its object style's (chunk 0x1B924 at 34,
 compared as a set of four values, since the order of the style's
 fields is not shown) or the style turns the category off. Over the
 trustworthy pairs of the corpus after 2026-10 the converter reproduces
-40,619 of 42,335 `InsetSpacing` values; 1,645 differ (most are the
-single-number form, which the list does not match) and 71 are missing,
-where it had 39,762 with 1,057 missing before applying the rule to DOM
-7 to 10.
+42,137 of 42,341 `InsetSpacing` values; 133 differ and 71 are missing.
 
 `MinimumFirstBaselineOffset` is 0 on every frame and object style of the
 corpus IDML files, so its field cannot be found. IDML writes it on a
