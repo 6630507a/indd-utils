@@ -1841,9 +1841,9 @@ mod tests {
         assert!(out.find("</Properties>").unwrap() < at);
         // A frame whose object style turns the wrap category on.
         assert!(write(None, "$ID/").contains("<ContourOption ContourPathName=\"$ID/\" />"));
-        // A code without a sample leaves the contour out.
+        // An unknown code leaves the contour out.
         let unknown = Contour {
-            kind: 4,
+            kind: 7,
             inside_edges: Some(false),
         };
         assert!(!write(Some(unknown), "$ID/").contains("ContourOption"));

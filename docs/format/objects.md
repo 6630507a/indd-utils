@@ -1272,7 +1272,7 @@ settings, below) have the same layout.
 
 | Offset | Contents |
 |---|---|
-| 0 | u32 contour type: 0 `BoundingBox`, 1 `DetectEdges`, 2 `AlphaChannel`, 5 `SameAsClipping`, 6 `SelectSubject` |
+| 0 | u32 contour type: 0 `BoundingBox`, 1 `DetectEdges`, 2 `AlphaChannel`, 3 `PhotoshopPath`, 4 `GraphicFrame`, 5 `SameAsClipping`, 6 `SelectSubject` |
 | 4 | f64: 5 in every placed graphic and the preferences, 5 or 8 in object styles |
 | 12 | u8: 25 everywhere |
 | 13 | `00 00 FF FF` everywhere |
@@ -1292,8 +1292,27 @@ of 2026-10) whose IDML has a `ContourOption`:
 | Byte 17 = 1 | `IncludeInsideEdges="true"` | 1 of 1 (type 2) |
 | Byte 17 = 0 | `IncludeInsideEdges="false"` | every other graphic with `ContourType` |
 
-No placed graphic of the pairs has another type, so the converter
-leaves the `ContourOption` of other types out. IDML from DOM 21.4 also
+Types 3 and 4 occur in no pair: no IDML in the corpus has either code.
+The IDML schema's `ContourOptionsTypes` list leaves `PhotoshopPath` and
+`GraphicFrame` as the two names without a code, and the INDD shows which
+is which:
+
+- The graphic's chunk 0x1635 holds path data in the layout of chunk
+  0x162B (an outline of the picture content). All 5 type 3 graphics of
+  v7.0 and later files have it (3 images, 2 EPS, 5 files); none of the
+  12 type 4 graphics (3 files) does. Types 1, 2 and 6 have it too (118
+  of 118 sampled), types 0 and 5 do not (56 of 56 sampled).
+- The wrap outline (chunk 0x162B of the 0x3702 object) of a type 4
+  graphic is the frame outline grown by the Top offset on every side.
+  Two graphics have a frame that differs from the image bounds (one
+  crops the image, one is wider than the placed bounds); both outlines
+  follow the frame, not the image. The wrap outline of a type 3 graphic
+  is its 0x1635 path, simplified and grown by the Top offset (3 of 3 with
+  an outline; one is 2.1 units short at the bottom), not the image box.
+
+So type 3 is drawn from a path of the picture (`PhotoshopPath`) and type 4
+from the frame (`GraphicFrame`). The converter leaves the
+`ContourOption` of other codes out. IDML from DOM 21.4 also
 writes `ContourTolerance="5"`, `ContourThreshold="25"`,
 `ContourAlphaIndex="0"` and `ContourPathIndex="-1"` (on 211 elements of
 the trustworthy pairs).
@@ -1319,6 +1338,10 @@ units. Over the images of the pairs that have a `ContourOption`:
 | Type 2, *n* ≥ 1 | the first channel name | 13 of 13 |
 | Type 2, *n* = 0 or no chunk | `$ID/` | 10 of 10 |
 | Any other type | `$ID/` | all (8,629), including 1,075 images with 1 to 7 channels |
+
+No chunk of the type 3 graphics holds a path name (strings searched in
+all chunks), so the converter writes `$ID/` for type 3 as for the other
+types.
 
 Which channel a type 2 contour names when *n* > 1 is not shown (no
 sample); the converter takes the first. Image chunk 0x1714 is not the
