@@ -5,6 +5,16 @@
 //! `tables.md` and `xml.md`.
 
 use super::*;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+
+/// Where an XML element with both markers in the text is written, when it
+/// is not inside a character range (xml.md, nesting with ranges).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Around {
+    Paragraphs,
+    Characters,
+}
 
 /// While writing text with XML markers: whether a character range is
 /// open, and the XML elements open inside it and around it.
@@ -13,8 +23,10 @@ pub(super) struct TextState {
     csr: bool,
     /// Elements open inside the character range.
     inline: Vec<XmlKey>,
-    /// Elements open between character ranges.
+    /// Elements open around character ranges.
     blocks: Vec<XmlKey>,
+    /// Elements written around ranges.
+    around: Rc<HashMap<XmlKey, Around>>,
     /// A character written without its `Change` and deleted text, which
     /// were written before the text source that starts there.
     bare: Option<usize>,
@@ -307,6 +319,31 @@ impl Writer<'_> {
         } else {
             Vec::new()
         };
+        // XML elements whose start marker and last character lie in
+        // different paragraph ranges are written around paragraph ranges,
+        // which split after the start marker and at the end marker (xml.md,
+        // nesting with ranges). Only text with the story's offsets has its
+        // markers.
+        let elements = if lift {
+            self.xml_spans(runs, story)
+        } else {
+            Vec::new()
+        };
+        let paragraph_level: Vec<(XmlKey, usize, usize)> = {
+            let mut group = Vec::with_capacity(runs.len());
+            for (i, t) in runs.iter().enumerate() {
+                let same = i > 0 && para_of(t) == para_of(&runs[i - 1]);
+                let g = group.last().copied().unwrap_or(0);
+                group.push(if i == 0 || same { g } else { g + 1 });
+            }
+            let group_at =
+                |p: usize| group[runs.partition_point(|t| t.start <= p).saturating_sub(1)];
+            elements
+                .iter()
+                .filter(|&&(_, s, e)| s + 1 < e && group_at(s) != group_at(e - 1))
+                .copied()
+                .collect()
+        };
         let cuts: Vec<usize> = sources
             .iter()
             .map(|r| (r.start, r.len))
@@ -316,6 +353,7 @@ impl Writer<'_> {
                     .map(|&k| (story.changes[k].start, story.changes[k].len)),
             )
             .flat_map(|(start, len)| [start, start + len])
+            .chain(paragraph_level.iter().flat_map(|&(_, s, e)| [s + 1, e]))
             .collect();
         let split;
         let runs = if cuts.is_empty() {
@@ -342,11 +380,59 @@ impl Writer<'_> {
                 _ => &runs[i].text,
             }
         };
+        // Elements within a paragraph range are written around character
+        // ranges when their start marker and their last character lie in
+        // different ones. Before version 11, also when they hold an element
+        // with a story as content that more of their text follows: that
+        // element ends its character range.
+        let mut around: HashMap<XmlKey, Around> = paragraph_level
+            .iter()
+            .map(|&(k, _, _)| (k, Around::Paragraphs))
+            .collect();
+        let run_at = |p: usize| runs.partition_point(|t| t.start <= p).saturating_sub(1);
+        // Elements with a story as content: offset, and the offset of the
+        // first character after it that is not an end marker.
+        let mut story_items: Vec<(usize, usize)> = Vec::new();
+        if !elements.is_empty() && self.doc.version.major < 11 {
+            for (&q, m) in story.xml_markers.range(lo..hi) {
+                if let XmlMarker::Placeholder(k) = m
+                    && self
+                        .doc
+                        .xml
+                        .elements
+                        .get(k)
+                        .is_some_and(|e| e.story_content)
+                {
+                    let mut next = q + 1;
+                    while matches!(story.xml_markers.get(&next), Some(XmlMarker::End(_))) {
+                        next += 1;
+                    }
+                    story_items.push((q, next));
+                }
+            }
+        }
+        for &(k, s, e) in &elements {
+            let from = story_items.partition_point(|&(q, _)| q <= s);
+            let ends_range = story_items[from..]
+                .iter()
+                .take_while(|&&(q, _)| q < e)
+                .any(|&(_, next)| next < e);
+            if !around.contains_key(&k) && (run_at(s) != run_at(e - 1) || ends_range) {
+                around.insert(k, Around::Characters);
+            }
+        }
+        let around = Rc::new(around);
+        // Paragraph-level elements open at a paragraph range that starts
+        // after their start marker, and close before one that starts at
+        // their end marker.
+        let element_starts: HashMap<usize, (XmlKey, usize)> = paragraph_level
+            .iter()
+            .map(|&(k, s, e)| (s + 1, (k, e)))
+            .collect();
+        let element_ends: HashSet<usize> = paragraph_level.iter().map(|&(_, _, e)| e).collect();
+        let mut open_elements: Vec<(XmlKey, usize)> = Vec::new();
         // A lifted change over runs of more than one paragraph range is a
         // child of the story, the others of their paragraph range.
-        fn para_of(t: &TextRun) -> (Option<u32>, &crate::model::Attrs) {
-            (t.paragraph_style, &t.paragraph_attrs)
-        }
         let mut group = vec![0usize; n];
         for i in 1..n {
             group[i] = group[i - 1] + usize::from(para_of(runs[i]) != para_of(runs[i - 1]));
@@ -364,11 +450,34 @@ impl Writer<'_> {
         let boundary = |p: usize| {
             top.iter()
                 .any(|&k| story.changes[k].start == p || change_end(k) == p)
+                || element_starts.contains_key(&p)
+                || element_ends.contains(&p)
         };
         // Story-level changes open, innermost last.
         let mut outer: Vec<usize> = Vec::new();
         let mut i = 0;
         while i < n {
+            let p = runs[i].start;
+            if open_elements.last().is_some_and(|&(_, e)| e == p) {
+                open_elements.pop();
+                x.end();
+            }
+            if let Some(&(k, e)) = element_starts.get(&p)
+                && let Some(el) = self.doc.xml.elements.get(&k)
+            {
+                Self::xml_element_start(x, el);
+                open_elements.push((k, e));
+            }
+            // A paragraph-level element's end marker alone between two
+            // others is in no paragraph range.
+            if runs[i].text == "\u{FEFF}"
+                && matches!(story.xml_markers.get(&p),
+                    Some(XmlMarker::End(k)) if around.get(k) == Some(&Around::Paragraphs))
+                && (i + 1 == n || boundary(runs[i + 1].start))
+            {
+                i += 1;
+                continue;
+            }
             let mut starting: Vec<usize> = top
                 .iter()
                 .copied()
@@ -392,6 +501,7 @@ impl Writer<'_> {
             Self::properties(x, &props);
             let mut st = TextState {
                 lifted: lifted.clone(),
+                around: around.clone(),
                 ..TextState::default()
             };
             // Paragraph-level sources and changes open, innermost last,
@@ -444,8 +554,13 @@ impl Writer<'_> {
                     self.source_start(x, src);
                     open.push(end);
                 }
-                self.csr_start(x, r);
-                st.csr = true;
+                // An end marker is in no character range.
+                let end_first = r.text.starts_with('\u{FEFF}')
+                    && matches!(story.xml_markers.get(&r.start), Some(XmlMarker::End(_)));
+                if !end_first {
+                    self.csr_start(x, r);
+                    st.csr = true;
+                }
                 self.run_content(x, text_of(i), r, story, scope, &mut st);
                 st.close_csr(x);
                 while open.last().is_some_and(|&end| end <= run_end(r)) {
@@ -471,6 +586,39 @@ impl Writer<'_> {
         for _ in outer.drain(..) {
             x.end();
         }
+        for _ in open_elements.drain(..) {
+            x.end();
+        }
+    }
+
+    /// The XML elements written in `runs` whose start and end markers both
+    /// lie in them: key, start and end offsets, in marker order.
+    fn xml_spans(&self, runs: &[TextRun], story: &Story) -> Vec<(XmlKey, usize, usize)> {
+        let inside = |p: usize| {
+            let i = runs.partition_point(|t| t.start <= p);
+            i > 0 && p < runs[i - 1].start + runs[i - 1].text.encode_utf16().count()
+        };
+        let (Some(first), Some(last)) = (runs.first(), runs.last()) else {
+            return Vec::new();
+        };
+        let hi = last.start + last.text.encode_utf16().count();
+        let mut starts: HashMap<XmlKey, usize> = HashMap::new();
+        let mut out = Vec::new();
+        for (&p, m) in story.xml_markers.range(first.start..hi) {
+            match *m {
+                XmlMarker::Start(k) if inside(p) && self.doc.xml.elements.contains_key(&k) => {
+                    starts.insert(k, p);
+                }
+                XmlMarker::End(k) if inside(p) => {
+                    if let Some(s) = starts.remove(&k) {
+                        out.push((k, s, p));
+                    }
+                }
+                _ => {}
+            }
+        }
+        out.sort_by_key(|&(_, s, _)| s);
+        out
     }
 
     /// Content, line breaks, anchored items, tables and XML elements of
@@ -736,20 +884,23 @@ impl Writer<'_> {
                 }
                 let get = |k: &XmlKey| self.doc.xml.elements.get(k);
                 match m {
-                    XmlMarker::Start(k) => match get(&k) {
-                        Some(e) if e.block => {
+                    // An element written around ranges has its start marker
+                    // in a character range of its parent, and its end
+                    // marker in none (xml.md, nesting with ranges).
+                    XmlMarker::Start(k) => match (get(&k), st.around.get(&k)) {
+                        (Some(_), Some(Around::Paragraphs)) => st.open_csr(self, x, run),
+                        (Some(e), Some(Around::Characters)) => {
+                            st.open_csr(self, x, run);
                             st.close_csr(x);
                             Self::xml_element_start(x, e);
                             st.blocks.push(k);
-                            self.csr_start(x, run);
-                            st.csr = true;
                         }
-                        Some(e) => {
+                        (Some(e), None) => {
                             st.open_csr(self, x, run);
                             Self::xml_element_start(x, e);
                             st.inline.push(k);
                         }
-                        None => {}
+                        (None, _) => {}
                     },
                     XmlMarker::End(k) => {
                         if st.inline.last() == Some(&k) {
@@ -766,9 +917,9 @@ impl Writer<'_> {
                             st.open_csr(self, x, run);
                             Self::xml_element_start(x, e);
                             x.end();
-                            // An element with a story as content ends its
-                            // character range.
-                            if e.story_content {
+                            // Before version 11, an element with a story as
+                            // content ends its character range.
+                            if e.story_content && self.doc.version.major < 11 {
                                 st.close_csr(x);
                             }
                         }
@@ -1119,6 +1270,12 @@ impl Writer<'_> {
     }
 }
 
+/// The paragraph formatting of a run: runs with the same one share a
+/// paragraph range.
+fn para_of(t: &TextRun) -> (Option<u32>, &crate::model::Attrs) {
+    (t.paragraph_style, &t.paragraph_attrs)
+}
+
 /// `runs` with each run that holds one of `cuts` strictly inside split
 /// there into two runs with the same styles.
 fn split_runs_at(runs: &[TextRun], cuts: &[usize]) -> Vec<TextRun> {
@@ -1407,42 +1564,16 @@ mod tests {
         );
     }
 
-    #[test]
-    fn writes_xml_elements_at_their_markers() {
-        use crate::model::{Attrs, XmlStructure};
-        let element = |name: &str, content, story_content, block| XmlElement {
-            name: name.into(),
-            tag: "t".into(),
-            content,
-            story_content,
-            block,
-            attributes: Vec::new(),
-        };
-        let (a, b, c, d) = ((9, 2), (9, 5), (9, 6), (9, 7));
-        let markers = [
-            (0, XmlMarker::Hidden),
-            (1, XmlMarker::Start(a)),
-            (2, XmlMarker::Placeholder(b)),
-            (3, XmlMarker::Start(c)),
-            (4, XmlMarker::Placeholder(d)),
-            (5, XmlMarker::End(c)),
-            (6, XmlMarker::End(a)),
-        ];
-        let story = Story {
+    /// A backing story with `runs` and XML `markers`.
+    fn xml_story(runs: Vec<TextRun>, markers: &[(usize, XmlMarker)]) -> Story {
+        Story {
             uid: 9,
-            runs: vec![TextRun {
-                start: 0,
-                text: "\u{FEFF}".repeat(8) + "\r",
-                paragraph_style: None,
-                character_style: None,
-                paragraph_attrs: Attrs::default(),
-                character_attrs: Attrs::default(),
-            }],
+            runs,
             anchors: Default::default(),
             tables: Default::default(),
             text_variables: Default::default(),
             sources: Vec::new(),
-            xml_markers: markers.into_iter().collect(),
+            xml_markers: markers.iter().copied().collect(),
             footnotes: Default::default(),
             notes: Default::default(),
             deletions: Default::default(),
@@ -1456,19 +1587,66 @@ mod tests {
             orientation: None,
             toc_style: None,
             settings: Default::default(),
-        };
+        }
+    }
+
+    fn xml_element(name: &str, content: Option<u32>, story_content: bool) -> XmlElement {
+        XmlElement {
+            name: name.into(),
+            tag: "t".into(),
+            content,
+            story_content,
+            attributes: Vec::new(),
+        }
+    }
+
+    fn text_run(
+        start: usize,
+        text: &str,
+        paragraph: Option<u32>,
+        character: Option<u32>,
+    ) -> TextRun {
+        TextRun {
+            start,
+            text: text.into(),
+            paragraph_style: paragraph,
+            character_style: character,
+            paragraph_attrs: Default::default(),
+            character_attrs: Default::default(),
+        }
+    }
+
+    #[test]
+    fn writes_xml_elements_at_their_markers() {
+        use crate::header::Version;
+        use crate::model::XmlStructure;
+        let (a, b, c, d) = ((9, 2), (9, 5), (9, 6), (9, 7));
+        let markers = [
+            (0, XmlMarker::Hidden),
+            (1, XmlMarker::Start(a)),
+            (2, XmlMarker::Placeholder(b)),
+            (3, XmlMarker::Start(c)),
+            (4, XmlMarker::Placeholder(d)),
+            (5, XmlMarker::End(c)),
+            (6, XmlMarker::End(a)),
+        ];
+        let text = "\u{FEFF}".repeat(8) + "\r";
+        let story = xml_story(vec![text_run(0, &text, None, None)], &markers);
         let doc = Document {
             xml: XmlStructure {
                 story: Some(story),
                 elements: [
-                    (a, element("di2", None, false, true)),
-                    (b, element("di2i5", Some(0x10), true, false)),
-                    (c, element("di2i6", None, false, false)),
-                    (d, element("di2i6i7", Some(0x20), false, false)),
+                    (a, xml_element("di2", None, false)),
+                    (b, xml_element("di2i5", Some(0x10), true)),
+                    (c, xml_element("di2i6", None, false)),
+                    (d, xml_element("di2i6i7", Some(0x20), false)),
                 ]
                 .into_iter()
                 .collect(),
             },
+            // Before version 11, the element with a story as content ends
+            // its character range.
+            version: Version { major: 7, minor: 5 },
             ..Document::default()
         };
         let w = Writer::for_test(&doc);
@@ -1491,5 +1669,73 @@ mod tests {
             d = el("di2i6i7"),
         );
         assert!(out.contains(&want), "{out}");
+    }
+
+    #[test]
+    fn writes_xml_elements_around_paragraph_and_character_ranges() {
+        use crate::model::XmlStructure;
+        // `a` and `c` end in the second paragraph range, `b` holds a
+        // character range of its own.
+        let (a, b, c) = ((9, 2), (9, 3), (9, 4));
+        let markers = [
+            (0, XmlMarker::Hidden),
+            (1, XmlMarker::Start(a)),
+            (2, XmlMarker::Start(b)),
+            (4, XmlMarker::End(b)),
+            (5, XmlMarker::Start(c)),
+            (9, XmlMarker::End(c)),
+            (10, XmlMarker::End(a)),
+        ];
+        let f = "\u{FEFF}";
+        let runs = vec![
+            text_run(0, &f.repeat(3), Some(1), None),
+            text_run(3, "x", Some(1), Some(7)),
+            text_run(4, &format!("{f}{f}y\r"), Some(1), None),
+            text_run(8, &format!("z{f}{f}{f}\r"), Some(2), None),
+        ];
+        let doc = Document {
+            xml: XmlStructure {
+                story: Some(xml_story(runs, &markers)),
+                elements: [
+                    (a, xml_element("di2", None, false)),
+                    (b, xml_element("di2i3", None, false)),
+                    (c, xml_element("di2i4", None, false)),
+                ]
+                .into_iter()
+                .collect(),
+            },
+            ..Document::default()
+        };
+        let w = Writer::for_test(&doc);
+        // Tag names, with the `Self` of elements, and text.
+        let mut out = String::new();
+        for part in w.backing_story().split('<').skip(1) {
+            let (tag, text) = part.split_once('>').unwrap();
+            let name = tag.split([' ', '/']).find(|s| !s.is_empty()).unwrap();
+            let close = if tag.starts_with('/') { "/" } else { "" };
+            let empty = if tag.ends_with('/') { "/" } else { "" };
+            let id = tag
+                .split_once("Self=\"")
+                .filter(|_| name == "XMLElement")
+                .map(|(_, r)| r.split('"').next().unwrap())
+                .unwrap_or("");
+            if !matches!(name, "Properties" | "?xml") {
+                out += &format!("<{close}{name}{id}{empty}>{}", text.trim());
+            }
+        }
+        let want = "<ParagraphStyleRange><CharacterStyleRange/></ParagraphStyleRange>\
+            <XMLElementdi2>\
+            <ParagraphStyleRange><CharacterStyleRange/>\
+            <XMLElementdi2i3><CharacterStyleRange><Content>x</Content></CharacterStyleRange>\
+            </XMLElement><CharacterStyleRange/></ParagraphStyleRange>\
+            <XMLElementdi2i4>\
+            <ParagraphStyleRange><CharacterStyleRange><Content>y</Content><Br/>\
+            </CharacterStyleRange></ParagraphStyleRange>\
+            <ParagraphStyleRange><CharacterStyleRange><Content>z</Content>\
+            </CharacterStyleRange></ParagraphStyleRange>\
+            </XMLElement></XMLElement>\
+            <ParagraphStyleRange><CharacterStyleRange><Content>\u{FEFF}</Content>\
+            </CharacterStyleRange></ParagraphStyleRange>";
+        assert!(out.contains(want), "{out}");
     }
 }

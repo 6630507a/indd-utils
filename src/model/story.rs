@@ -199,9 +199,6 @@ pub struct XmlElement {
     pub content: Option<u32>,
     /// The content is a story.
     pub story_content: bool,
-    /// Written between character ranges rather than inside one: the
-    /// element holds an element whose content is a story.
-    pub block: bool,
     /// Attribute names and values, in stored order.
     pub attributes: Vec<(String, String)>,
 }
@@ -469,7 +466,7 @@ impl<'a> Reader<'a> {
             r.len = unit(r.start + r.len) - start;
             r.start = start;
         }
-        let xml_markers = match self.story_xml(uid, marker_strand, &para, &unit) {
+        let xml_markers = match self.story_xml(uid, marker_strand, &unit) {
             Ok(m) => m,
             Err(e) => {
                 self.warn(format!("story {uid}: XML structure left out: {e}"));
@@ -847,14 +844,11 @@ impl<'a> Reader<'a> {
     }
 
     /// Read the XML nodes stored with story `uid` and place their markers.
-    /// `unit` converts a character position to a UTF-16 offset; `para` are
-    /// the paragraph runs, in UTF-16 units. An element whose start and end
-    /// lie in different paragraph runs is left out.
+    /// `unit` converts a character position to a UTF-16 offset.
     pub(super) fn story_xml(
         &self,
         uid: u32,
         marker_strand: Option<u32>,
-        para: &[StyleRun],
         unit: &dyn Fn(usize) -> usize,
     ) -> Result<BTreeMap<usize, XmlMarker>, Error> {
         let mut out = BTreeMap::new();
@@ -884,13 +878,6 @@ impl<'a> Reader<'a> {
         if nodes.is_empty() {
             return Ok(out);
         }
-        let para_of = |at: usize| {
-            let mut end = 0;
-            para.iter().position(|(len, _, _)| {
-                end += len;
-                at < end
-            })
-        };
         for node in nodes {
             let at = |m: Option<u32>| m.and_then(|m| positions.get(&m)).map(|&p| unit(p));
             let (start, end) = (at(node.start), at(node.end));
@@ -905,17 +892,9 @@ impl<'a> Reader<'a> {
                 }
             } else {
                 match (start, end) {
-                    (Some(s), Some(e)) if para_of(s) == para_of(e) => {
+                    (Some(s), Some(e)) => {
                         out.insert(s, XmlMarker::Start(node.key));
                         out.insert(e, XmlMarker::End(node.key));
-                    }
-                    (Some(s), Some(e)) => {
-                        self.warn(format!(
-                            "story {uid}: XML element {:?} spans paragraphs; left out",
-                            node.key
-                        ));
-                        out.insert(s, XmlMarker::Hidden);
-                        out.insert(e, XmlMarker::Hidden);
                     }
                     (Some(s), None) => {
                         out.insert(s, XmlMarker::Placeholder(node.key));
@@ -995,39 +974,9 @@ impl<'a> Reader<'a> {
                     tag: tag.clone(),
                     content,
                     story_content,
-                    block: false,
                     attributes: node.attributes.clone(),
                 },
             );
-        }
-        // An element is written as a block when it holds, at any depth, an
-        // element that is a single marker with a story as content.
-        let holds_story = |key: &xml::Key| {
-            let mut stack = vec![*key];
-            let mut seen = Vec::new();
-            while let Some(k) = stack.pop() {
-                if seen.contains(&k) {
-                    continue;
-                }
-                seen.push(k);
-                let Some(n) = nodes.get(&k) else { continue };
-                for c in &n.children {
-                    if let Some(child) = nodes.get(c)
-                        && child.end.is_none()
-                        && out.get(c).is_some_and(|e: &XmlElement| e.story_content)
-                    {
-                        return true;
-                    }
-                    stack.push(*c);
-                }
-            }
-            false
-        };
-        let blocks: Vec<xml::Key> = out.keys().filter(|k| holds_story(k)).copied().collect();
-        for k in blocks {
-            if let Some(e) = out.get_mut(&k) {
-                e.block = true;
-            }
         }
         Ok(out)
     }
