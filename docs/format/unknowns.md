@@ -49,6 +49,7 @@ Status values:
 
 | Item | Where | Files | Status | Content and reason | See |
 |---|---|---:|---|---|---|
+| Object style transparency without a differing sample | chunk 0x1B92C | – | open: never varies | about 45 of the 69 attributes per block, every content block attribute and the stroke, fill and content `KnockedOut`: placed by the block layout and the defaults only, never different from the root's value in a sample; not written | `transparency.md`, object styles |
 | Language list | `Language` elements | 42 | open: no field found | IDML lists only the languages in use in 42 documents and all in the others; the language objects are the same in both kinds | |
 | Font families IDML drops | class 0x3E03 | 101 | open: no field found | unused families left out of `Fonts.xml`, but many other unused ones kept; no record byte differs; files up to 17.x only | `fonts.md` |
 | Fonts IDML adds | `Font` | 97 | not needed | IDML adds every style of a family installed on the exporting computer | `fonts.md` |

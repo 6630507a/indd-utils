@@ -2755,6 +2755,9 @@ Where a row has several IDs, they are all present or all absent in every
 style, so the corpus does not tell which one the attribute follows; the
 converter writes the attribute only when they agree.
 
+The transparency categories do not change which transparency values
+IDML writes on a style (`transparency.md`, object styles).
+
 Versions are those of the INDD header, major and minor. Over the 489
 trustworthy pairs: `EnableTextFrameColumnRuleOptions` is on no style in
 the 42 documents of 15.0 (four builds), and on every style in the 7 of

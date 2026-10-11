@@ -7,7 +7,7 @@ Page items keep their transparency settings in their attribute list
 0x108xx and 0x1EBxx. Object styles keep a full list of the same
 attributes in chunk 0x1B92C (u16 count, then records).
 
-IDML writes them as child elements of the page item: `TransparencySetting`
+IDML writes them as child elements of the page item or object style: `TransparencySetting`
 (the whole object), `StrokeTransparencySetting` and
 `FillTransparencySetting`, each holding one element per effect
 (`BlendingSetting`, `DropShadowSetting`, `InnerShadowSetting`,
@@ -234,15 +234,117 @@ stops `<item>TransparencySetting1GradientFeatherSetting1OpacityGradientStop<i>`
 (with `StrokeTransparencySetting` or `FillTransparencySetting` for those
 settings), 170 of 170.
 
+## Object styles
+
+Chunk 0x1B92C of an object style holds the transparency attributes with
+the IDs and value types of page items (u16 count, then records, see
+`attributes.md`). Evidence: the 1,252 trustworthy pairs of the corpus
+after 2026-10, 5,560 INDD object styles, 5,466 of them matched by name
+to an IDML `ObjectStyle`. Every style of DOM 7.0 to 21.5 has the same
+360 IDs as its root style. InDesign 4.0 documents have 17 IDs in another
+layout; the converter writes no transparency for their styles.
+
+**Write rule.** IDML writes an attribute of a style when the style's
+value differs from the value of the root style `[None]`. Counted over
+the matched styles, per style, setting and attribute (the drop shadow
+colour aside, below):
+
+| Category flag (chunk 0x1B92E) | Value differs from the root | Cells | In IDML |
+|---|---|---:|---|
+| on | no | 1,663,254 | none |
+| on | yes | 371 | all |
+| off | no | 3,480 | none |
+| off | yes | 25 | all |
+
+So the transparency categories (`EnableTransparency="false"`) do not
+change what is written, and the comparison is with the root, not the
+style it is based on: 36 written values equal the parent's value, and 8
+values equal to the root whose parent differs are not written. The root
+has the same list in all 1,252 documents and gets no setting element;
+neither does a style whose values all equal the root's. Opacity stops
+follow the same rule: the root has an empty list, and the 11 styles
+with stops have them in IDML (8 with the category on, 3 off), all
+matching the formula below. Their `Self` is
+`u<style UID in hex><setting>1GradientFeatherSetting1OpacityGradientStop<i>`
+(23 of 23 stops).
+
+IDML writes the settings after `FrameFittingOption` and before
+`ObjectStyleObjectEffectsCategorySettings` in all 184 styles that have
+them. No style has `ContentTransparencySetting`.
+
+**Drop shadow colour.** The root stores 0 (no swatch) for the object
+drop shadow's `EffectColor` (0x10837). 14 styles store Black (0xB), 10
+of them with the drop shadow on and 4 off, and none has an `EffectColor`
+in IDML; 9 styles store another swatch, and IDML writes it in all 9.
+The converter leaves out Black where the root stores 0, as for page
+items. In the stroke and fill blocks the root stores Black, so the rule
+above already leaves it out. Other colours follow the rule: outer glow
+`Color/Black` where the root has Paper (2 values), satin `Color/Paper`
+where the root has Black (2).
+
+**Blocks.** The list holds four blocks of 69 attributes, for
+`TransparencySetting`, `StrokeTransparencySetting`,
+`FillTransparencySetting` and `ContentTransparencySetting`, plus the
+gradient feather and drop shadow `KnockedOut` IDs listed above for page
+items. The attributes are in the same order in every block, and the
+root's values agree with `TransparencyDefaultContainerObject` of the
+IDML at all 205 numeric, boolean and point positions:
+
+| Block | IDs |
+|---|---|
+| Stroke | 0x10891 to 0x108A0, 0x108A3 to 0x108D7 |
+| Fill | 0x108D8 to 0x108E7, 0x108EA to 0x108FF, 0x1EB00 to 0x1EB1E |
+| Content | 0x1EB28 to 0x1EB37, 0x1EB3A to 0x1EB6E |
+| Object | 0x10816 to 0x1081C, 0x1081E to 0x10822, 0x10825, 0x10837, 0x1084A, 0x1084D to 0x1087F |
+
+The object block's drop shadow `Noise` and `UseGlobalLight` and its
+feather `Noise` have no identified ID.
+
+The converter writes on styles the page item IDs above and the IDs
+below, each shown by a value: in every style where IDML writes the
+attribute, the ID holds the IDML value (0 mismatches), at the position
+the block layout gives it. Values are as for page items: f64 with all digits,
+percent stored as percent, u16 1 `true`, blend modes by the code table
+below, colours as swatch UIDs.
+
+| Setting | Effect | Attribute: ID (values written) |
+|---|---|---|
+| Object | `FeatherSetting` | `Mode`: 0x10821, i32: 0 `None`, 3 `Standard` (2) |
+| Object | `InnerShadowSetting` | `Opacity`: 0x10850 (1) |
+| Object | `BevelAndEmbossSetting` | `ShadowColor`: 0x10875 (3) |
+| Stroke | `BlendingSetting` | `BlendMode`: 0x10892 (2) |
+| Stroke | `OuterGlowSetting` | `Applied` 0x108AF, `Opacity` 0x108B1, `EffectColor` 0x108B3, `Spread` 0x108B5 (2 each) |
+| Fill | `BlendingSetting` | `BlendMode`: 0x108D9 (1) |
+| Fill | `DropShadowSetting` | `Mode` 0x108DC (0 `None`, 1 `Drop`), `XOffset` 0x108DD, `YOffset` 0x108DE, `UseGlobalLight` 0x108E5 (2 each) |
+| Fill | `InnerShadowSetting` | `Applied` 0x108EC, `EffectColor` 0x108ED, `Opacity` 0x108EF, `Angle` 0x108F0, `Distance` 0x108F1, `ChokeAmount` 0x108F3, `Size` 0x108F4 (2 each) |
+| Fill | `OuterGlowSetting` | `Applied` 0x108F6, `BlendMode` 0x108F7, `EffectColor` 0x108FA, `Size` 0x108FD (2 each) |
+| Fill | `InnerGlowSetting` | `Applied` 0x108FE (8), `BlendMode` 0x108FF (2), `Opacity` 0x1EB00 (8), `EffectColor` 0x1EB02 (2), `Size` 0x1EB05 (8) |
+| Fill | `BevelAndEmbossSetting` | `Applied` 0x1EB07, `Size` 0x1EB0C, `Soften` 0x1EB0D, `Angle` 0x1EB0E, `Altitude` 0x1EB0F, `HighlightOpacity` 0x1EB13, `ShadowOpacity` 0x1EB16 (2 each) |
+| Fill | `SatinSetting` | `Applied` 0x1EB17, `EffectColor` 0x1EB18, `BlendMode` 0x1EB19, `Opacity` 0x1EB1A, `Angle` 0x1EB1B, `Distance` 0x1EB1C, `Size` 0x1EB1D, `InvertEffect` 0x1EB1E (2 each) |
+
+Styles confirm page item rows as well, for example drop shadow `Mode`
+(32 values), `XOffset` and `YOffset` (29), `Opacity` and `Size` (25),
+`EffectColor` (9) and `KnockedOut` (121 values, all `false`, in 31
+documents; the root stores 1), and the fill and stroke gradient
+feathers (`Applied` 7 and 1, `Angle` 6 and 1, stops 7 and 1).
+
+With these rows the converter reproduces, over the 1,252 trustworthy
+pairs, 491 of the 493 transparency attribute values of object styles
+(stop attributes counted one by one), with no value that IDML does not
+have. The 2 left are `HonorOtherEffects` of a fill drop shadow, which
+has no identified ID. The IDs found on styles are written on styles
+only; no page item sample was checked against them.
+
 ## Not converted
 
-- Drop shadow `Noise` and `UseGlobalLight`.
-- Stroke, fill and content blending (opacity and blend mode) and the
-  other effects (feather, outer and inner glow, bevel and emboss, satin,
-  directional feather): no item or style in the pairs has a value other
-  than the default, so their attributes cannot be told apart. One text
-  frame has `ContentTransparencySetting` with an inner glow and a satin
-  effect applied, and two attributes set to 1, so it cannot show which is
+- Drop shadow `Noise`, and `UseGlobalLight` other than that of the fill
+  drop shadow of object styles.
+- On page items, the stroke, fill and content effects other than the
+  gradient feather and fill opacity. One text frame has
+  `ContentTransparencySetting` with an inner glow and a satin effect
+  applied, and two attributes set to 1, so it cannot show which is
   which.
+- On object styles, the attributes that no sample shows by a value
+  (`unknowns.md`), and `ContentTransparencySetting`.
 - `GradientFeatherSetting/Type`: `Linear` in every sample.
-- Transparency of placed graphics and object styles.
+- Transparency of placed graphics.

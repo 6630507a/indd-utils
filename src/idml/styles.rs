@@ -316,7 +316,28 @@ impl Writer<'_> {
         for os in doc.object_styles.values() {
             let name = self.grouped_name(os.uid, &os.name, os.builtin);
             let root = os.builtin && os.name == "[None]" && os.based_on.is_none();
-            let node = self.object_style_node(os, root);
+            let mut node = self.object_style_node(os, root);
+            if !root
+                && let Some(r) = doc
+                    .object_styles
+                    .values()
+                    .find(|s| Self::is_root_object_style(s))
+            {
+                let (settings, left_out) = transparency::style_settings(self, os, r);
+                // Before the effects categories, as IDML has them.
+                let at = node
+                    .children
+                    .iter()
+                    .position(|c| c.tag == "ObjectStyleObjectEffectsCategorySettings")
+                    .unwrap_or(node.children.len());
+                node.children.splice(at..at, settings);
+                for (effect, attr, v) in left_out {
+                    self.warnings.borrow_mut().push(format!(
+                        "object style {}: {effect} {attr} {v} is outside the IDML range; left out",
+                        os.uid
+                    ));
+                }
+            }
             x.start("ObjectStyle")
                 .attr("Self", format!("ObjectStyle/{}", self_name(&name)))
                 .attr("Name", &name);
