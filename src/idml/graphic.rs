@@ -210,8 +210,18 @@ impl Writer<'_> {
     /// `outer` is the transform from the graphic's parent to the spread.
     /// The contour of a graphic's text wrap: its own (chunk 0x373D), else
     /// that of new graphics in the preferences (objects.md, text wrap).
-    pub(super) fn graphic_contour(&self, g: &Graphic) -> Option<Contour> {
-        g.contour.or(self.doc.prefs.contour)
+    pub(super) fn graphic_contour(&self, g: &Graphic) -> Option<ContourOption> {
+        let c = g.contour.or(self.doc.prefs.contour)?;
+        // An `AlphaChannel` contour names the image's first channel
+        // (objects.md, text wrap, contour).
+        let path_name = match &g.alpha_channel {
+            Some(name) if c.kind == 2 => name.clone(),
+            _ => "$ID/".into(),
+        };
+        Some(ContourOption {
+            contour: Some(c),
+            path_name,
+        })
     }
 
     pub(super) fn placed_graphic(&self, x: &mut Xml, g: &Graphic, outer: &Matrix) {

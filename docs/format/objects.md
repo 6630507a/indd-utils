@@ -1299,8 +1299,30 @@ writes `ContourTolerance="5"`, `ContourThreshold="25"`,
 the trustworthy pairs).
 They may be the f64 at 4, the u8 at 12 and two i16 at 13 and 15, but no
 sample has another value, so the converter does not write them.
-`ContourPathName` (`$ID/`, or the name of the alpha channel for type 2)
-is not in the chunk and is not written either.
+
+`ContourPathName` is not in the chunk. Every `ContourOption` of the
+corpus IDMLs has it (25,551 of 25,551 in 1,693 IDML). It is `$ID/` in
+25,525; the other 26 name an alpha channel of an image: 13 images with
+`ContourType="AlphaChannel"` and their 13 frames, in five documents.
+The name comes from image chunk 0x177C:
+
+| Offset | Contents |
+|---|---|
+| 0 | u32 channel count *n* (0 in most images, which then have 4 bytes) |
+| 4 | per channel: a flag byte (3 or 0; meaning unknown), an in-object string (the channel name), then bytes not decoded |
+
+For example `01 00 00 00 | 03 | 02 03 03 00 | 03 80` and 3 UTF-16
+units. Over the images of the pairs that have a `ContourOption`:
+
+| Image | `ContourPathName` | Images |
+|---|---|---|
+| Type 2, *n* ≥ 1 | the first channel name | 13 of 13 |
+| Type 2, *n* = 0 or no chunk | `$ID/` | 10 of 10 |
+| Any other type | `$ID/` | all (8,629), including 1,075 images with 1 to 7 channels |
+
+Which channel a type 2 contour names when *n* > 1 is not shown (no
+sample); the converter takes the first. Image chunk 0x1714 is not the
+source: its alpha channel name is `$ID/` in all 22 type 2 images.
 
 A graphic without chunk 0x373D has the contour of the preferences chunk
 0x373F, and without that chunk, type 5 and `IncludeInsideEdges="false"`.
@@ -1314,10 +1336,15 @@ A frame with one placed graphic (`Rectangle`, `Oval`, `Polygon`) has the
 contour of its graphic, unless its object style turns the text wrap
 category on (all of 0x1B942, 0x37C8 and 0x37C9 in chunk 0x1B92E, IDML
 `EnableTextWrapAndOthers="true"`). Then its `ContourOption` has only
-`ContourPathName`: 517 of 518 such frames in the trustworthy pairs. The
-converter writes no `ContourOption` for them. The 8,965 other frames with
-`ContourType` take their graphic's type and `IncludeInsideEdges` in all
-cases. Frames without a graphic have no `ContourOption` (all but one).
+`ContourPathName`: 517 of 518 such frames in the trustworthy pairs. In
+all corpus pairs, the value is `$ID/` in all 568 `ContourOption`
+elements with only that attribute (554 frames and the 14 graphics
+below); the converter writes the name of the graphic's contour, which
+is `$ID/` unless the graphic has type 2 and a channel (no sample of
+that in such a frame). The 8,965 other frames with `ContourType` take
+their graphic's type and `IncludeInsideEdges` in all cases, and the
+frames of the 13 named images their `ContourPathName`. Frames without a
+graphic have no `ContourOption` (all but one).
 
 The IDML has no `ContourType` and `IncludeInsideEdges` on 14 graphics:
 5 with type 5 in chunk 0x373D and 9 without the chunk. 12 of them are in
@@ -2672,6 +2699,8 @@ the u32 at 40 = 1, and chunk 0x3777 type 5: IDML `None` with
 IDML style is the only one with `ContourType="BoundingBox"`. Every other
 IDML object style, with or without the chunk, has `SameAsClipping`
 (5,555 of 5,556 styles), so a style without the chunk takes type 5.
+`ContourPathName` is `$ID/` in every `ContourOption` of the object
+styles of the corpus pairs (7,423 of 7,423, DOM 7 to 21).
 
 **Categories (chunk 0x1B92E).** An ID in the list means the attribute is
 `true`. Over the 1,684 object styles other than `[None]` of the

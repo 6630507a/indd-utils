@@ -806,6 +806,7 @@ impl Writer<'_> {
                 if let Some(inside) = c.inside_edges {
                     attrs.push(("IncludeInsideEdges", inside.to_string()));
                 }
+                attrs.push(("ContourPathName", "$ID/".into()));
                 node.set(&["TextWrapPreference", "ContourOption"], attrs);
             }
         }

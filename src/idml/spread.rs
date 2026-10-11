@@ -547,7 +547,7 @@ impl Writer<'_> {
     pub(super) fn text_wrap_preference(
         x: &mut Xml,
         wrap: Option<&TextWrap>,
-        contour: Option<Contour>,
+        contour: Option<ContourOption>,
     ) {
         let Some(mode) = text_wrap_mode(wrap) else {
             return;
@@ -580,14 +580,22 @@ impl Writer<'_> {
         }
         x.empty("TextWrapOffset", &text_wrap_offsets(wrap));
         x.end();
-        if let Some(c) = contour
-            && let Some(t) = contour_type(c.kind)
-        {
-            x.start("ContourOption").attr("ContourType", t);
-            if let Some(inside) = c.inside_edges {
-                x.attr("IncludeInsideEdges", inside.to_string());
+        if let Some(o) = contour {
+            // A type code without a sample leaves the contour out.
+            let typed = o
+                .contour
+                .map(|c| contour_type(c.kind).map(|t| (t, c.inside_edges)));
+            if typed != Some(None) {
+                x.start("ContourOption");
+                if let Some(Some((t, inside))) = typed {
+                    x.attr("ContourType", t);
+                    if let Some(inside) = inside {
+                        x.attr("IncludeInsideEdges", inside.to_string());
+                    }
+                }
+                x.attr("ContourPathName", &o.path_name);
+                x.end();
             }
-            x.end();
         }
         x.end();
     }
@@ -974,7 +982,10 @@ impl Writer<'_> {
         let style_wrap =
             on.is_some_and(|on| [0x1B942, 0x37C8, 0x37C9].iter().all(|id| on.contains(id)));
         let contour = match item.graphics.as_slice() {
-            [g] if !style_wrap => self.graphic_contour(g),
+            [g] if style_wrap => self
+                .graphic_contour(g)
+                .map(|o| ContourOption { contour: None, ..o }),
+            [g] => self.graphic_contour(g),
             _ => None,
         };
         Self::text_wrap_preference(x, item.text_wrap.as_ref(), contour);
@@ -1810,23 +1821,32 @@ mod tests {
         assert_eq!(alpha.inside_edges, Some(true));
         // A damaged chunk is left out.
         assert_eq!(Contour::read(enc, &chunk[..17]), None);
-        let write = |c: Contour| {
+        let write = |contour: Option<Contour>, path_name: &str| {
             let mut x = Xml::new();
-            Writer::text_wrap_preference(&mut x, None, Some(c));
+            let o = ContourOption {
+                contour,
+                path_name: path_name.into(),
+            };
+            Writer::text_wrap_preference(&mut x, None, Some(o));
             x.finish()
         };
-        let out = write(alpha);
+        let out = write(Some(alpha), "Alpha 1");
         let at = out
-            .find("<ContourOption ContourType=\"AlphaChannel\" IncludeInsideEdges=\"true\" />")
+            .find(
+                "<ContourOption ContourType=\"AlphaChannel\" IncludeInsideEdges=\"true\" \
+                 ContourPathName=\"Alpha 1\" />",
+            )
             .unwrap();
         // The schema puts `ContourOption` after `Properties`.
         assert!(out.find("</Properties>").unwrap() < at);
+        // A frame whose object style turns the wrap category on.
+        assert!(write(None, "$ID/").contains("<ContourOption ContourPathName=\"$ID/\" />"));
         // A code without a sample leaves the contour out.
         let unknown = Contour {
             kind: 4,
             inside_edges: Some(false),
         };
-        assert!(!write(unknown).contains("ContourOption"));
+        assert!(!write(Some(unknown), "$ID/").contains("ContourOption"));
     }
 
     #[test]

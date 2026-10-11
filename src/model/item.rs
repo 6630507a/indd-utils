@@ -413,8 +413,23 @@ pub struct Graphic {
     /// Image import options (chunk 0x1714): apply the Photoshop clipping
     /// path, alpha channel name.
     pub import: Option<(bool, Name)>,
+    /// The name of the image's first alpha channel (chunk 0x177C), which
+    /// an `AlphaChannel` contour uses.
+    pub alpha_channel: Option<String>,
     /// The index of a placed InDesign page (chunk 0x2505, u32 at 0).
     pub page_index: Option<u32>,
+}
+
+/// The first channel name of chunk 0x177C: u32 channel count, then per
+/// channel a flag byte and a string (objects.md, text wrap, contour).
+/// `None` without a channel or with a damaged chunk.
+fn alpha_channel(enc: Encoding, d: &[u8]) -> Option<String> {
+    let mut c = enc.cursor(d);
+    if c.u32().ok()? == 0 {
+        return None;
+    }
+    c.flag().ok()?;
+    c.string().ok().filter(|s| !s.is_empty())
 }
 
 /// Image properties (chunk 0x1708): u32 count, then records of u32 key,
@@ -1426,6 +1441,10 @@ impl<'a> Reader<'a> {
                 }
                 _ => None,
             },
+            alpha_channel: match self.chunk(uid, chunk::IMAGE_CHANNELS)? {
+                Some(d) if kind == GraphicKind::Image => alpha_channel(self.enc(), &d),
+                _ => None,
+            },
             page_index: match self.chunk(uid, chunk::IMPORTED_PAGE_INFO)? {
                 Some(d) if kind == GraphicKind::ImportedPage => self.enc().u32_at(&d, 0),
                 _ => None,
@@ -1903,6 +1922,35 @@ mod eps_text_tests {
 mod tests {
     use super::*;
     use crate::object::Encoding;
+
+    #[test]
+    fn reads_the_first_alpha_channel() {
+        use crate::header::{ByteOrder, Version};
+        for order in [ByteOrder::Little, ByteOrder::Big] {
+            let version = Version {
+                major: 18,
+                ..Version::default()
+            };
+            let enc = Encoding::new(order, version);
+            let mut d = enc.u32_bytes(1).to_vec();
+            // Flag 3, string tag 2, script byte 3.
+            d.extend(match order {
+                ByteOrder::Little => [3, 2, 3],
+                ByteOrder::Big => [2, 3, 3],
+            });
+            d.extend(enc.u16_bytes(7));
+            d.extend(enc.u16_bytes(0x4007));
+            d.extend(b"Alpha 1");
+            d.extend([0; 18]);
+            assert_eq!(
+                alpha_channel(enc, &d).as_deref(),
+                Some("Alpha 1"),
+                "{order:?}"
+            );
+            assert_eq!(alpha_channel(enc, &d[..12]), None);
+            assert_eq!(alpha_channel(enc, &enc.u32_bytes(0)), None);
+        }
+    }
 
     #[test]
     fn reads_export_size_keys() {

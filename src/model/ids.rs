@@ -312,6 +312,8 @@ pub mod chunk {
     pub const PDF_PLACEMENT: u32 = 0x251B;
     /// Placed InDesign page: u32 page index at 0, other fields.
     pub const IMPORTED_PAGE_INFO: u32 = 0x2505;
+    /// Channels of an image: u32 count, then flag byte and name of each.
+    pub const IMAGE_CHANNELS: u32 = 0x177C;
     /// Layers of an image, PDF or imported page.
     pub const GRAPHIC_LAYERS: u32 = 0x177A;
     /// Applied layer comp of an image (i32 at 4).

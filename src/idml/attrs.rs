@@ -164,6 +164,17 @@ pub(super) fn contour_type(code: u32) -> Option<&'static str> {
     })
 }
 
+/// The `ContourOption` of a text wrap. See `docs/format/objects.md`, text
+/// wrap, contour.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct ContourOption {
+    /// Type and inside edges; `None` for a frame whose object style turns
+    /// the text wrap category on, which has only `ContourPathName`.
+    pub contour: Option<Contour>,
+    /// `ContourPathName`: `$ID/` or the name of an alpha channel.
+    pub path_name: String,
+}
+
 /// IDML `TextWrapOffset` attributes of a text wrap (0 without one).
 pub(super) fn text_wrap_offsets(wrap: Option<&TextWrap>) -> Vec<(&'static str, String)> {
     let [left, top, right, bottom] = wrap.map_or([0.0; 4], |w| w.offsets);
