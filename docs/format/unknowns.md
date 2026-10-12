@@ -45,6 +45,7 @@ Status values:
 | `AppliedMathMLFontSize` | `Document` (DOM 20 on) | 99 | open: no field found | `10`, but `16` in 3 DOM 20.2 files; left out | `idml-values.md`, document attributes |
 | Language quotes without chunk 0x2D26 | `Language` (Japanese, Korean, Hebrew) | 10 | open: no field found | `''` and `""` in most documents, `‘’` and `“”` in 2, 7 and 1; left out | `idml-values.md`, language quotes |
 | `UntitledDocumentCount` | `Document` (DOM 12) | 72 pairs | open: no field found | `1` in most DOM 12 IDML files, other numbers in a few | |
+| `DOMVersion` after an export by a later release | `Document` and every package part | 87 | not needed | the IDML's `product` names a later release than the last session of the save history: 68 sessions of 10.1 with 10.2, 16 of 13.0 with 13.1, 3 others. All but one of the 84 are on platform 3, but other platform-3 sessions of 10.1 and 13.0 have their own DOM version, and the IDML has the INDD's `xmpMM:InstanceID`, so nothing stored shows the export | `idml-values.md`, DOM version |
 
 ## Resources and text
 

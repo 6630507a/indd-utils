@@ -447,6 +447,18 @@ without saving them: 68 sessions of 10.1 whose IDML has 10.2, 16 of
 This is a rule of the exporting edition (`preferences.md`, values of
 the exporting edition).
 
+The later release leaves no trace in the INDD. Over all 1,462 pairs, 67
+of the 68 sessions of 10.1 and all 16 of 13.0 are on platform 3 (the
+second u16 of the save history record; `objects.md`, save history), and
+their IDML has the same `xmpMM:InstanceID` as the INDD. But platform 3
+does not decide the version: of the 68 platform-3 sessions of 10.1 in
+these pairs, one has an IDML of 10.1 (`product` `10.1(70)`), and 2 of
+the 18 platform-3 sessions of 13.0 have one of 13.0. For 13.0 the
+other fields of the record (the build, the two u16 not identified) are
+the same in both groups; for 10.1 the second u16 not identified is 2 in
+the one exception and 1 in the 67, a difference of one document. The
+converter writes the version of the last session.
+
 `Assignment` (1,495 elements, one per file): `UserName="$ID/"`,
 `ExportOptions="AssignedSpreads"`, `IncludeLinksWhenPackage="true"`,
 `FilePath="$ID/"` and `FrameColor` `Nothing`, from DOM 7.
