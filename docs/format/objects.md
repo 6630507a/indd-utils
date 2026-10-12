@@ -281,6 +281,7 @@ language quotes and the trimmed language lists.
 | 0x140D | Master spreads: u16, 0 = `ShowMasterItems="false"` |
 | 0x140A | Master spreads: u32 story of the primary text frame (below) |
 | 0x2050C | Page transition (12 bytes): u32 type code, u32 40, u32 direction code (below) |
+| 0x2056D | Timing lists (animation and timing, below) |
 
 Evidence, over the 5,129 spreads and 914 master spreads of the 495
 trustworthy pairs:
@@ -2203,10 +2204,197 @@ style (12 anchored check boxes and radio buttons with a style other
 than `[None]` have no `AnchoredObjectSetting`). A field has no
 `ObjectExportOption`.
 
+Timing lists of buttons and animations: animation and timing, below.
+
 **Not decoded.** Button behaviours (`GotoAnchorBehavior`,
-`GotoURLBehavior`, … in 193 buttons; chunk 0x15601 lists them), the
-`TimingSetting` of buttons and the `AnimationSetting` of multi-state
-objects.
+`GotoURLBehavior`, … in 193 buttons; chunk 0x15601 lists them).
+
+## Animation and timing
+
+Spreads and buttons keep timing lists, page items an animation, and the
+document a list of motion presets. Evidence: the 43 pairs of the corpus
+whose IDML has any of these elements (little-endian, versions 8.0 to
+18.0; all trustworthy). The layouts are the same in all versions. A
+sweep of the first occurrence of each chunk in the spreads, buttons,
+spline items, groups and preferences of all 1,251 trustworthy pairs
+found non-empty timing lists, preset lists or animations only in these
+43 documents.
+The converter writes all of them by the rules below, and `compare.py`
+finds all 3,783 of their values in its output for these 43 pairs.
+
+Strings below:
+
+- **Text string**: u32 length in UTF-16 code units, then text segments.
+- **Name**: a flag byte (1 = built-in key, `$ID/` in IDML) and an
+  in-object string.
+
+### Timing lists (chunks 0x2056D and 0x2056E)
+
+Spreads keep their timing lists in chunk 0x2056D, buttons (class
+0x1450C) in chunk 0x2056E. Most page items also have chunk 0x2056D,
+with a count of 0.
+
+```
+u32 lists
+  per list:   u32 trigger, u32 groups
+    per group:  u32 targets
+      per target: u32 UID, u32 role, u32 action, u32 (0 in all 163), f64 delay
+    then:       u32 plays, u16 (0 in all 159)
+```
+
+The chunk parses to its end in 96 of 96 owners. IDML writes a
+`TimingSetting` exactly when the list count is not 0: 43 of 43 spreads
+and 53 of 53 buttons with lists have one; 20 spreads and 119 buttons
+with count 0 have none.
+
+| IDML | Source | Evidence |
+|---|---|---|
+| `TimingList` `Self` | owner `Self` + `TimingSetting1TimingList` + list index (from 0) | 96 of 96 |
+| `TriggerEvent` | trigger code: 1 `OnPageLoad`, 5 `OnClick`, 6 `OnRelease`, 7 `OnRollover` | 43 / 2 / 45 / 6; spreads all 1 |
+| `TimingGroup` `Self` | list `Self` + `TimingGroup` + group index (from 0) | 159 of 159 |
+| `Plays` | u32 plays | 159 of 159 (all 1) |
+| `TimingTarget` `Self` | group `Self` + `i` + target UID in hex | 163 of 163 |
+| `DynamicTarget` | `u` + target UID in hex | 163 of 163 |
+| `DelaySeconds` | f64 delay | 163 of 163 (0 and 0.25) |
+| `TargetRole` | u32 role, in decimal | 163 of 163 |
+| `TargetAction` | u32 action, in decimal | 163 of 163 (all 132353) |
+| `Placement` | target index in its group (from 0) | 163 of 163 |
+
+Roles by target class: 132353 button behaviours (classes 0x1562C,
+0x1563F, 0x15643, 0x15660, 0x156F4; 53 targets), 132354 movies (3),
+132355 spline items, groups and multi-state objects (100), 132356
+sounds (7). The stored value is written as is.
+
+Example, a spread with one list, one group and one target:
+`01 00 00 00 | 01 00 00 00 01 00 00 00 | 01 00 00 00 | 63 04 00 00 03 05 02 00 01 05 02 00 00 00 00 00 | 00 00 00 00 00 00 00 00 | 01 00 00 00 00 00`.
+
+IDML writes the spread's `TimingSetting` after `FlattenerPreference`
+and before the pages, and the button's after `TextWrapPreference` and
+before the `State` elements (53 of 53). Multi-state objects have chunk
+0x2056D with count 0 in all samples; where their timing lists would be
+stored is not shown.
+
+### Motion presets (class 0x20517)
+
+Chunk 0x2053E of the preferences object (class 0x2202): u32 *n*, then
+*n* preset UIDs. IDML writes one `MotionPreset` in designmap.xml per
+UID, in this order, after the `NamedGrid` elements (63 presets in 30
+documents; 5 more documents have the chunk with *n* = 0 and no
+`MotionPreset`).
+
+Chunk 0x20532 of a preset:
+
+| Field | IDML |
+|---|---|
+| text string | `Properties/Contents`, as is (63 of 63; IDML writes it as CDATA) |
+| 4 bytes | not mapped; they vary without pattern (`00 00 00 00`, `5C 00 50 00`, …) |
+| name | empty, flag 1 in all 63 |
+| name | `Name`: `$ID/` and the string for flag 1 (63 of 63, all flag 1) |
+
+The chunk parses to its end in 63 of 63. The stored name is not always
+the one inside the preset's XML (`appear` stored, `Appear` in the XML's
+`<name>`); IDML takes the stored name (2 of 2).
+
+### Animation settings (chunk 0x2055F)
+
+Every spline item (class 0x6201), group (0x401), button (0x1450C) and
+multi-state object (0x145D8) has chunk 0x2055F, and so do placed
+graphics. Two bytes `00 00` mean no animation: IDML writes no
+`AnimationSetting` (1,996 of 1,996 objects with this chunk in the 43
+documents, items and graphics). A longer chunk means an animation, and
+IDML writes `AnimationSetting` (100 of 100: 57 rectangles, 22 text
+frames, 13 ovals, 6 multi-state objects, 2 groups). Longer chunks also
+occur in 12 objects that are not written as page items (classes 0x129,
+0x1D6, 0x301, 0x3E03, 0x8C41, 0x8C4B, 0xCA8B).
+
+| Offset | Type | IDML | Evidence |
+|---:|---|---|---|
+| 0 | u16 | not mapped | 1 in 100 of 100 |
+| 2 | u16 | `HasCustomSettings`: 1 `true`, 0 `false` | 100 of 100 (20 `true`) |
+| 4 | u32 | `Properties/Preset type="object"`: the preset UID | 100 of 100 |
+| 8 | f64 | `Duration`, in seconds | 100 of 100 (1, 0.5833…, 1.0416…) |
+| 16 | u32 | not in IDML: 24 (frames per second) | 100 of 100 |
+| 20 | u32 | not in IDML: frames, `Duration` × 24 | 100 of 100 |
+| 24 | u32 | `DesignOption`: 0 `FromCurrentAppearance`, 2 `ToCurrentLocation` | 44 / 56 |
+| 28 | u32 | not mapped: 0 in all | 100 of 100 |
+| 32 | u32 | `Plays` | 100 of 100 (87 × 1, 13 × 2) |
+| 36 | u16 | not mapped: 0 in all | 100 of 100 |
+| 38 | u32 | `EaseType`: 0 `NoEase`, 4 `CustomEase` | 3 / 97 |
+| 42 | 2 × f64 | `TransformOffsets`, each rounded to 6 significant digits | 100 of 100 (`0.499924 0.499886`) |
+| 58 | | motion path key frames, motion path points, properties (below) | |
+
+From offset 58:
+
+```
+u32 n             key frames of the motion path
+  per key frame:  u32 frame, u32 (2 in all 155), f64 x, f64 y
+u32 m             points of a motion path without key frames
+  per point:      u32 (2 in all 4), f64 x, f64 y
+u32 p             animated properties
+  per property:   text string (name), text string (the same name again),
+                  u32 k keys, per key: u32 frame, u32 (6 in all 528), f64 value
+```
+
+The chunk parses to its end in 100 of 100.
+
+- `Properties/MotionPath`: one `AnimationDataPathKeyFrameType
+  KeyFrame="frame"` per key frame, with `PathPoint Anchor="x y"
+  LeftDirection="x y" RightDirection="x y"` (98 of 98 with *n* > 0;
+  left and right direction equal the anchor in all 155 points). No
+  `MotionPath` when *n* = 0 (2 of 2).
+- `Properties/MotionPathPoints`: when *m* > 0, a `PathPointArray` with
+  one `PathPointType` per point, anchor and both directions `x y` (2 of
+  2; both have *n* = 0).
+- Properties by name: `Alpha_Amount` → `OpacityArray`, `Rotation_Z` →
+  `RotationArray`, `Scale_X` → `ScaleXArray`, `Scale_Y` → `ScaleYArray`;
+  each key is `AnimationDataKeyFrameType KeyFrame="frame" Value="value"`
+  (all 396 arrays). A property with no keys has no element (1 of 1),
+  and neither has a property that is not stored (4 items have no
+  `Alpha_Amount`, and no `OpacityArray`). The second name equals the
+  first in 396 of 396.
+- `Properties` children are in the order `Preset`, `MotionPath` or
+  `MotionPathPoints`, `OpacityArray`, `RotationArray`, `ScaleXArray`,
+  `ScaleYArray` (100 of 100).
+
+Numbers other than `TransformOffsets` are in the shortest form
+(`764.0000000000001`, `-552.6140386840932`, `0.5833333333333334`; all
+100 elements). IDML writes `AnimationSetting` after
+`ObjectExportOption` and before child items and placed graphics, and
+after the `State` elements of a multi-state object (100 of 100).
+
+### Values without a stored field
+
+These attributes have one value in every sample, and no stored field
+was found for them. The converter writes that value:
+
+| Attribute | Value | Samples |
+|---|---|---:|
+| `TimingGroup/@PlaysLoop` | `false` | 159 |
+| `TimingTarget/@ReverseAnimation` | `false` | 163 |
+| `AnimationSetting/@PlaysLoop` | `false` | 100 |
+| `AnimationSetting/@InitiallyHidden` | `false` | 100 |
+| `AnimationSetting/@HiddenAfter` | `false` | 100 |
+| `MotionPreset/@EditLocked`, `@DeleteLocked`, `@NameLocked` | `false` | 63 each |
+| `MotionPathPoints/@PathOpen` | `true` | 2 |
+
+Candidate fields are 0 in every sample: in a timing target the u32
+after the action (`ReverseAnimation`?), after a group's plays the u16
+(`PlaysLoop`?), in chunk 0x2055F the u32 at 28 (`InitiallyHidden` and
+`HiddenAfter`?) and the u16 at 36 (`PlaysLoop`?). Mapping them needs a
+sample with a `true` value.
+
+### Not shown
+
+- Codes without samples: `DesignOption` 1 (the schema's third value is
+  `ToCurrentAppearance`), `EaseType` 1 to 3, trigger codes other than
+  1, 5, 6 and 7. The converter leaves such an attribute out with a
+  warning.
+- Curved motion paths: every path point has u32 2 before its
+  coordinates and left and right directions equal to the anchor.
+- Chunk 0x2056C of spreads (a UID list), the 4 bytes after a preset's
+  contents and the frame fields at 16 and 20 of chunk 0x2055F are not
+  needed for IDML.
+- Big-endian files: no samples.
 
 ## Placed InDesign pages (class 0x6607)
 
