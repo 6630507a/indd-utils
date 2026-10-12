@@ -37,6 +37,29 @@ pub(super) const PREFERENCE_TAGS: &[&str] = &[
     "EPubFixedLayoutExportPreference",
 ];
 
+/// Preference values that no INDD field holds and nearly every reference
+/// IDML has: (element, attribute, value, first DOM version). See
+/// `docs/format/idml-values.md`, defaults.
+const PREFERENCE_DEFAULTS: &[(&str, &str, &str, (u32, u32))] = &[
+    ("PrintPreference", "TilingType", "Auto", (0, 0)),
+    ("TextPreference", "HighlightKeeps", "false", (0, 0)),
+    (
+        "TextPreference",
+        "HighlightSubstitutedFonts",
+        "true",
+        (0, 0),
+    ),
+    ("ViewPreference", "GuideSnaptoZone", "4", (0, 0)),
+    ("ViewPreference", "ShowNotes", "true", (0, 0)),
+    ("XMLExportPreference", "ViewAfterExport", "false", (0, 0)),
+    (
+        "DocumentPreference",
+        "SpreadHiddenVisibility",
+        "false",
+        (20, 0),
+    ),
+];
+
 /// A tree of preference values as a `Node`.
 fn pref_node(n: &crate::model::prefs::PrefNode) -> Node {
     Node {
@@ -1275,6 +1298,16 @@ impl Writer<'_> {
         for (tag, attr) in drop {
             if let Some(n) = nodes.iter_mut().find(|n| n.tag == tag) {
                 n.attrs.retain(|(k, _)| k != attr);
+            }
+        }
+        for &(tag, name, value, from) in PREFERENCE_DEFAULTS {
+            if self.dom_version() < from {
+                continue;
+            }
+            if let Some(n) = nodes.iter_mut().find(|n| n.tag == tag)
+                && n.attr(name).is_none()
+            {
+                n.attrs.push((name.into(), value.into()));
             }
         }
         for n in &nodes {

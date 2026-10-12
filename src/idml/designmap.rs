@@ -96,11 +96,17 @@ const NO_SPELLING_VENDOR: &[&str] = &[
     "uz_UZ",
 ];
 
-/// Quotes that every IDML has for a language without chunk 0x2D26, where
-/// the value files lack them because languages with the chunk differ
-/// (idml-values.md, language quotes).
-const QUOTES_WITHOUT_CHUNK: &[(&str, &str, &str)] =
-    &[("Romanian", "\u{201A}\u{2019}", "\u{201E}\u{201D}")];
+/// Quotes of a language without chunk 0x2D26 that the value files lack.
+/// Every Romanian language without the chunk has these, but those with it
+/// differ (idml-values.md, language quotes). The others are defaults: a
+/// few references have other quotes, which no stored field explains
+/// (idml-values.md, defaults).
+const QUOTES_WITHOUT_CHUNK: &[(&str, &str, &str)] = &[
+    ("Romanian", "\u{201A}\u{2019}", "\u{201E}\u{201D}"),
+    ("Korean", "''", "\"\""),
+    ("Japanese", "''", "\"\""),
+    ("Hebrew", "''", "\"\""),
+];
 
 impl Writer<'_> {
     /// Values of designmap settings that follow the InDesign that saved the
@@ -177,6 +183,10 @@ impl Writer<'_> {
             .attr("DOMVersion", &self.dom)
             .attr("Self", "d")
             .attr("StoryList", stories.join(" "));
+        // Defaults without a stored field (idml-values.md, defaults).
+        if self.dom_version().0 == 12 {
+            x.attr("UntitledDocumentCount", "1");
+        }
         // `Name` from DOM 13 (idml-values.md, document attributes).
         if doc.version.major >= 13 {
             x.attr("Name", name);
@@ -195,7 +205,8 @@ impl Writer<'_> {
         // (idml-values.md, document attributes).
         let mathml = self.dom_version() >= (20, 0);
         if mathml {
-            x.attr("AppliedMathMLRgbColor", "0 0 0")
+            x.attr("AppliedMathMLFontSize", "10")
+                .attr("AppliedMathMLRgbColor", "0 0 0")
                 .attr("TintValue", "100");
         }
         if self.dom_version() >= (20, 4) {

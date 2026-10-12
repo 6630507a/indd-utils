@@ -602,7 +602,15 @@ fn print_prefs(
     }
     set("Copies", enc.cursor(&a[104..]).u32()?.to_string());
     set_flag(&mut set, "PrintBlankPages", a[118]);
-    // The page range text; IDML writes `AllPages` whatever it holds.
+    // The page range: 0 at A+122 is `AllPages`; with 2 IDML has none,
+    // whatever the page range text holds.
+    if !booklet && enc.cursor(&a[122..]).u16()? == 0 {
+        props.push((
+            element,
+            "PageRange",
+            PrefProp::Text("enumeration", "AllPages".into()),
+        ));
+    }
     flagged(&mut c)?;
 
     // Block B: spreads, colour output, composite screening.
@@ -2611,6 +2619,7 @@ mod tests {
         let mut a = vec![0u8; 126];
         a[84] = 1;
         a[104] = 2;
+        let a_at = d.len();
         d.extend(a);
         fstr(&mut d, 1, "");
         let mut b = vec![0u8; 30];
@@ -2707,6 +2716,10 @@ mod tests {
             Some(PrefProp::Text("enumeration", "PostScriptCMS".into()))
         );
         assert_eq!(
+            prop("PageRange"),
+            Some(PrefProp::Text("enumeration", "AllPages".into()))
+        );
+        assert_eq!(
             records,
             vec![
                 ("PrintPreference", "PrintRecord", vec![1, 2, 3]),
@@ -2727,6 +2740,21 @@ mod tests {
         .unwrap();
         assert!(!values.iter().any(|v| NOT_IN_BOOKLET.contains(&v.name)));
         assert!(values.iter().any(|v| v.name == "ColorOutput"));
+        assert!(!props.iter().any(|p| p.1 == "PageRange"));
+
+        // Page range code 2: IDML has no `PageRange`.
+        d[a_at + 122] = 2;
+        let (mut values, mut props, mut records) = (Vec::new(), Vec::new(), Vec::new());
+        print_prefs(
+            enc,
+            &d,
+            "PrintPreference",
+            &mut values,
+            &mut props,
+            &mut records,
+        )
+        .unwrap();
+        assert!(!props.iter().any(|p| p.1 == "PageRange"));
     }
 
     /// A u32 length and single-byte text segments.
