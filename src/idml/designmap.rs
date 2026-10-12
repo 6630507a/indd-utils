@@ -492,6 +492,7 @@ impl Writer<'_> {
                 &[("src", format!("Stories/Story_u{:x}.xml", s.uid))],
             );
         }
+        self.style_mappings(&mut x, "d", &doc.style_mappings);
         self.hyperlinks(&mut x);
         self.color_groups(&mut x);
         for (i, b) in doc.bullets.iter().enumerate() {

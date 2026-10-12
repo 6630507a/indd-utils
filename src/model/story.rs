@@ -101,6 +101,9 @@ pub struct StoryChunks {
     pub grid: Option<GridData>,
     /// Chunk 0xCD32: the applied named grid (`Reader::applied_named_grid`).
     pub named_grid: Option<Option<u32>>,
+    /// Link, style mappings and import options of a linked or placed
+    /// story.
+    pub linked: StoryLinkChunks,
 }
 
 /// A footnote: its text runs, at their offsets in the story text, which
@@ -813,6 +816,12 @@ impl<'a> Reader<'a> {
                     None => None,
                 },
                 named_grid: self.applied_named_grid(uid)?,
+                linked: self.story_link_chunks(uid).unwrap_or_else(|e| {
+                    self.warn(format!(
+                        "story {uid}: link and import options left out: {e}"
+                    ));
+                    StoryLinkChunks::default()
+                }),
             },
             toc_style: match self
                 .chunk(uid, chunk::STORY_TOC)?

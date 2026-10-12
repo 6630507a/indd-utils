@@ -68,7 +68,7 @@ impl Writer<'_> {
         x.end().end().end();
     }
 
-    fn warn(&self, msg: String) {
+    pub(super) fn warn(&self, msg: String) {
         self.warnings.borrow_mut().push(msg);
     }
 

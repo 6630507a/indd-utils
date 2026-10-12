@@ -167,6 +167,13 @@ impl Writer<'_> {
         if major >= 13 {
             x.attr("IsEndnoteStory", s.is_endnote.to_string());
         }
+        // The ID that links to this story name it by (objects.md, story
+        // links).
+        if tag == "Story"
+            && let Some(id) = self.doc.link_source_ids.get(&s.uid)
+        {
+            x.attr("LinkResourceId", id.to_string());
+        }
         // Without chunk 0xA44C the title is `$ID/` (objects.md, stories).
         let title = s.settings.title.as_deref().unwrap_or("$ID/");
         x.attr("StoryTitle", title);
@@ -216,6 +223,7 @@ impl Writer<'_> {
         let mut x = Xml::new();
         self.package_root(&mut x, "Story");
         self.story_start(&mut x, "Story", s);
+        self.story_link_properties(&mut x, s);
         // Optical margin and direction from the story's chunks; without
         // them, the values every story without the chunks has, and a size
         // of 13 Q where text sizes are in Q (objects.md, stories).
@@ -264,10 +272,15 @@ impl Writer<'_> {
         {
             self.grid_data(&mut x, g);
         }
+        Self::linked_story_option(&mut x, s);
         x.start("InCopyExportOption");
         x.attrs_missing(self.observed("Story/InCopyExportOption").iter());
         x.end();
         let scope = uref(Some(s.uid));
+        self.style_mappings(&mut x, &scope, &s.settings.linked.mappings);
+        if let Some(link) = &s.settings.linked.link {
+            self.link(&mut x, link);
+        }
         // The element whose content is the story holds all its text.
         let element = s
             .xml_element

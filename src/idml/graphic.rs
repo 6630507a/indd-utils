@@ -160,12 +160,18 @@ impl Writer<'_> {
         if let Some(f) = &link.format {
             x.attr("LinkResourceFormat", builtin_key(f));
         }
-        x.attr(
-            "StoredState",
-            if link.embedded { "Embedded" } else { "Normal" },
-        )
-        .attr("LinkClassID", "35906")
-        .attr("LinkClientID", "257");
+        let state = if link.embedded {
+            "Embedded"
+        } else if link.contained {
+            "Contained"
+        } else {
+            "Normal"
+        };
+        // The class of the link object (objects.md, links).
+        let class = if link.class == 0 { 0x8C42 } else { link.class };
+        x.attr("StoredState", state)
+            .attr("LinkClassID", class.to_string())
+            .attr("LinkClientID", "257");
         if let Some(m) = link.modified {
             x.attr("LinkResourceModified", m.to_string());
         }

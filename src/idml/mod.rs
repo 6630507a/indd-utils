@@ -20,6 +20,7 @@ mod pages;
 mod resources;
 mod spread;
 mod story;
+mod story_link;
 mod styles;
 mod transparency;
 mod values;

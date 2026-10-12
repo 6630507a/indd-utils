@@ -24,6 +24,7 @@ mod reader;
 mod settings;
 mod spread;
 mod story;
+mod story_link;
 mod strings;
 mod style;
 pub mod table;
@@ -42,6 +43,7 @@ pub use reader::*;
 pub use settings::*;
 pub use spread::*;
 pub use story::*;
+pub use story_link::*;
 use strings::*;
 pub use style::*;
 

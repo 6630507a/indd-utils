@@ -343,15 +343,19 @@ pub enum GraphicKind {
     ImportedPage,
 }
 
-/// A link (class 0x8C42) and its link resource (class 0x8C41). See
-/// `docs/format/objects.md`, links.
+/// A link (class 0x8C42, 0x21D03 or 0x21D32) and its link resource
+/// (class 0x8C41). See `docs/format/objects.md`, links.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Link {
     pub uid: u32,
+    /// The class of the link object (`LinkClassID`); 0 for unknown.
+    pub class: u32,
     /// `LinkResourceURI`, for example `file:/Users/me/image.jpg`.
     pub uri: String,
     /// The linked file is stored in the document (`StoredState="Embedded"`).
     pub embedded: bool,
+    /// Chunk 0x8C92, u32 at URI+8 is 3 (`StoredState="Contained"`).
+    pub contained: bool,
     /// Chunk 0x8C9B, u32 at 12: 0 when the linked file was modified.
     pub modified: Option<bool>,
     /// Chunk 0x8C9B, u16 at 20: 1 when the link is shown.
@@ -1699,6 +1703,7 @@ impl<'a> Reader<'a> {
         let resource = self.cursor(&info[8..]).u32()?;
         let mut link = Link {
             uid,
+            class: self.class(uid).unwrap_or(0),
             ..Link::default()
         };
         let mut data = None;
@@ -1709,10 +1714,12 @@ impl<'a> Reader<'a> {
             c.u8()?;
             let n = c.u32()? as usize;
             link.uri = String::from_utf8_lossy(c.bytes(n.min(c.remaining()))?).into_owned();
-            // After the URI: 12 bytes, then the UID of the embedded
-            // file's raw data object (0 for a normal link).
+            // After the URI: 8 bytes, the stored state (3 for contained
+            // content), then the UID of the embedded file's raw data
+            // object (0 for a normal link).
             if c.remaining() >= 16 {
-                c.skip(12)?;
+                c.skip(8)?;
+                link.contained = c.u32()? == 3;
                 data = self.raw_data(c.u32()?)?;
                 // Then the stamp, the modification time, the file size,
                 // a byte and the format name.

@@ -103,6 +103,13 @@ pub mod class {
     pub const ITEM_BASE: u32 = 0x6E02;
     /// The wrap path of an item's text wrap (chunk 0x3703 at offset 4).
     pub const TEXT_WRAP_PATH: u32 = 0x3702;
+    /// Links of a linked story and of a linked page item (`LinkClassID`
+    /// is the class of the link object).
+    pub const STORY_LINK: u32 = 0x21D03;
+    pub const PAGE_ITEM_LINK: u32 = 0x21D32;
+    /// Import options of placed Word and Excel files (story chunk 0x12202).
+    pub const WORD_IMPORT_OPTIONS: u32 = 0x12210;
+    pub const EXCEL_IMPORT_OPTIONS: u32 = 0x12213;
 }
 
 /// Chunk IDs.
@@ -207,6 +214,20 @@ pub mod chunk {
     pub const STORY_DIRECTION: u32 = 0x50F96;
     /// Optical margin: u16, f64 size, u16, u16 alignment, u16.
     pub const STORY_OPTICAL_MARGIN: u32 = 0x2EE;
+    /// Linked story options: 6 bytes, u32 `ApplyStyleMappings`.
+    pub const STORY_LINK_OPTIONS: u32 = 0x21D12;
+    /// Style mappings of a story or of the preferences: five lists.
+    pub const STYLE_MAPPINGS: u32 = 0x21D30;
+    /// u32 UID of the import options of placed text, u32.
+    pub const STORY_IMPORT_OPTIONS: u32 = 0x12202;
+    /// Word import options: 19 u32.
+    pub const WORD_IMPORT_OPTIONS: u32 = 0x12210;
+    /// Excel import options.
+    pub const EXCEL_IMPORT_OPTIONS: u32 = 0x12213;
+    /// Style mapping preferences of placed text: u32 p, u32 c, names.
+    pub const STYLE_MAPPING_PREFS: u32 = 0x12216;
+    /// Document: link source IDs, u32, u32 count, (ID, UID) pairs.
+    pub const LINK_SOURCE_IDS: u32 = 0x21D06;
     /// The TOC style of a table of contents.
     pub const TOC_STYLE_OF: u32 = 0x11613;
     /// Name of a dashed and of a striped stroke style: flag byte, string.
@@ -315,6 +336,8 @@ pub mod chunk {
     /// text orientation.
     pub const FRAME_TEXT_TRANSFORM: u32 = 0x2DE;
     pub const GRAPHIC_BOUNDS: u32 = 0x1633;
+    /// Links of an object (graphic, story, page item): 4 bytes, u32
+    /// count, link UIDs.
     pub const GRAPHIC_LINK: u32 = 0x8CBC;
     /// u32 object of class 0x8C01 that images of InDesign 2.0 to 5.0 name
     /// (0 = none).

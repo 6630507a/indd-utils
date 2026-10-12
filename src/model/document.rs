@@ -124,6 +124,11 @@ pub struct Document {
     /// The black swatch's name in the XMP packet: the language of the
     /// edition that saved the document (`objects.md`, saving edition).
     pub black_name: Option<String>,
+    /// `LinkResourceId` by story or text frame UID (document chunk
+    /// 0x21D06).
+    pub link_source_ids: BTreeMap<u32, u32>,
+    /// Document style mappings (chunk 0x21D30 of the preferences).
+    pub style_mappings: StyleMappings,
 }
 
 /// An article (class 0x21B01): its name (chunk 0x13C) and the UIDs of
@@ -226,7 +231,7 @@ struct ClassObjects {
 }
 
 /// The UID of the document object.
-const DOC: u32 = 1;
+pub(super) const DOC: u32 = 1;
 
 impl<'a> Reader<'a> {
     /// Read the document object and every class the converter knows.
@@ -376,6 +381,11 @@ impl<'a> Reader<'a> {
             .filter_map(|u| objects.color_groups.remove(&u))
             .collect();
         let bullets = self.bullets()?;
+        let link_source_ids = self.link_source_ids().unwrap_or_else(|e| {
+            self.warn(format!("link source IDs left out: {e}"));
+            BTreeMap::new()
+        });
+        let style_mappings = self.document_style_mappings();
         Ok(Document {
             version,
             layers,
@@ -436,6 +446,8 @@ impl<'a> Reader<'a> {
             xml,
             xmp_dates: Vec::new(),
             black_name: None,
+            link_source_ids,
+            style_mappings,
             // Last, so that it holds every warning of the model.
             warnings: self.warnings.borrow().clone(),
         })

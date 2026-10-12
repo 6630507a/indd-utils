@@ -790,6 +790,11 @@ impl Writer<'_> {
                 .attr("PreviousTextFrame", uref(*previous))
                 .attr("NextTextFrame", uref(*next))
                 .attr("ContentType", "TextType");
+            // The ID that links to this frame name it by (objects.md,
+            // story links).
+            if let Some(id) = self.doc.link_source_ids.get(&item.uid) {
+                x.attr("LinkResourceId", id.to_string());
+            }
         } else if let ItemKind::Shape(_) = item.kind {
             let content = if item.graphics.is_empty() && !item.props.graphic_frame {
                 "Unassigned"
