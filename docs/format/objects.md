@@ -1197,9 +1197,27 @@ and category. Trustworthy pairs: the rule reproduces all 3,315
 `OverprintFill` values and all 68, 30, 20, 2 and 1 `OverprintStroke`
 values of polygons, graphic lines, rectangles, ovals and text frames,
 with no extra value. Of the items that store 0x6E6A, 27 have a `Paper`
-fill and no `OverprintFill`. Groups (313 `OverprintFill` values) are
-not written: a group stores no flag, and its value is not the one its
-children share (75 groups with `true` have children that differ).
+fill and no `OverprintFill`.
+
+A group stores no flag. IDML gives it the flag that its children share,
+counting only children whose fill (for `OverprintFill`) or stroke (for
+`OverprintStroke`) puts ink on the page by the rule above: the child's
+own flag, `false` without one; for a child group, its shared flag. A
+group whose children with ink differ, or that has none, gets no
+attribute, and neither does a group whose shared flag equals its object
+style's value (`false` where the style has none). In documents saved by
+21.4 or later, where every object style has the overprint attributes
+(object style settings, overprint), children without ink count too,
+with their own flag, else their style's value. Over all 1,462 pairs this
+gives 320 of 320 `OverprintFill` values of groups (313 in 82
+trustworthy pairs) and 2 of 2 `OverprintStroke` values, all `true`,
+with no extra value; 4 more are written in a stale pair on groups that
+its IDML does not have. 75 of the 320 groups have a child that
+has no attribute in IDML. The 21.4 case rests on one group of one
+trustworthy pair, whose child without ink has the style value `false`
+and whose IDML has no attribute; before 21.4 a child whose stroke is
+`Paper` under a style with `OverprintStroke="false"` does not count
+(one group).
 
 ## Object export options
 

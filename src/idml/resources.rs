@@ -1007,6 +1007,7 @@ impl Writer<'_> {
                 .find(|(k, _)| *k == "StrokeType")
                 .map(|(_, v)| v.clone());
             values.retain(|(k, _)| dash_written(k, stroke.as_deref()));
+            values.extend(self.overprint_attrs(a, false));
             ours[i]
                 .attrs
                 .extend(values.into_iter().map(|(k, v)| (k.to_string(), v)));

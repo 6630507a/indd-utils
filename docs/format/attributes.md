@@ -162,9 +162,9 @@ In 38 of the `FillTint` values every child stores a fill tint of 100,
 and the group has −1. The rule adds 27 extra values: 3 documents of
 versions 10 to 12 whose groups have `CornerRadius` and
 `TopLeftCornerRadius` but not the other three radii, although every
-child has all four, and one `StrokeType`. `OverprintFill` (313 values)
-does not follow the rule in 75 groups that have a child without the
-attribute, and is not written on groups.
+child has all four, and one `StrokeType`. `OverprintFill` and
+`OverprintStroke` of groups follow the children with ink only
+(`objects.md`, page item overprint).
 
 **Category turned off.** When the item's object style (other than the
 root `[None]`) turns a category off, IDML writes the item's values of

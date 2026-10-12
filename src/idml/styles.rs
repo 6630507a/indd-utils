@@ -446,6 +446,35 @@ impl Writer<'_> {
             .is_some_and(|(&uid, _)| self.carries_ink(uid))
     }
 
+    /// `OverprintFill`, `OverprintStroke` and `OverprintGap` of an object
+    /// style or the page item defaults: where the colour carries ink (never
+    /// on the root style), and from 21.4 always (objects.md, object style
+    /// overprint; preferences.md, page item defaults).
+    pub(super) fn overprint_attrs(&self, attrs: &Attrs, root: bool) -> Vec<(&'static str, String)> {
+        let mut out = Vec::new();
+        for (name, color, tint, overprint) in [
+            ("OverprintFill", 0x6E68, 0x6E69, 0x6E6A),
+            ("OverprintStroke", 0x6E64, 0x6E66, 0x6E67),
+            ("OverprintGap", 0x6E89, 0x6E8A, 0x6E8B),
+        ] {
+            let Some(v) = attrs.get(overprint).and_then(Value::as_u32) else {
+                continue;
+            };
+            let ink = || {
+                let tint = attrs.get(tint).and_then(Value::as_f64);
+                attrs
+                    .get(color)
+                    .and_then(Value::as_u32)
+                    .is_some_and(|c| self.carries_ink(c))
+                    && tint != Some(0.0)
+            };
+            if v <= 1 && (self.saved_by((21, 4)) || (!root && ink())) {
+                out.push((name, (v == 1).to_string()));
+            }
+        }
+        out
+    }
+
     /// An object style as a values node: the values every exported IDML
     /// has on such a style (`idml-values.md`), with the values read from
     /// the INDD in their place. See `docs/format/objects.md`.
@@ -529,28 +558,7 @@ impl Writer<'_> {
         if let Some(g) = self.named_grid_ref(os.named_grid) {
             attrs.push(("AppliedNamedGrid", g));
         }
-        // Overprint of the fill, stroke and gap: where the colour carries
-        // ink, and from 21.4 always (objects.md, object style overprint).
-        for (name, color, tint, overprint) in [
-            ("OverprintFill", 0x6E68, 0x6E69, 0x6E6A),
-            ("OverprintStroke", 0x6E64, 0x6E66, 0x6E67),
-            ("OverprintGap", 0x6E89, 0x6E8A, 0x6E8B),
-        ] {
-            let Some(v) = os.attrs.get(overprint).and_then(Value::as_u32) else {
-                continue;
-            };
-            let ink = || {
-                let tint = os.attrs.get(tint).and_then(Value::as_f64);
-                os.attrs
-                    .get(color)
-                    .and_then(Value::as_u32)
-                    .is_some_and(|c| self.carries_ink(c))
-                    && tint != Some(0.0)
-            };
-            if v <= 1 && (self.saved_by((21, 4)) || (!root && ink())) {
-                attrs.push((name, (v == 1).to_string()));
-            }
-        }
+        attrs.extend(self.overprint_attrs(&os.attrs, root));
         for (name, value) in export_flags(os.export.as_ref(), |v| self.saved_by(v), false) {
             attrs.push((name, value.into()));
         }

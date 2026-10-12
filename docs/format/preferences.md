@@ -448,9 +448,18 @@ The two gradient angles are told apart by one file with fill angle 90
 and stroke angle 0. The two arrowhead scales are equal in every file, so
 which ID is which is assumed from their order; the IDs are in the list
 exactly where IDML has the attributes (1,159 files, from version 12.0
-on). The line end code 0x5A0C is `SquareSolidArrowHead` (5 files). The
-overprint IDs 0x6E67, 0x6E6A and 0x6E8B are 0 in every list, but IDML
-has the attributes in only 16 and 12 files, so they are not written.
+on). The line end code 0x5A0C is `SquareSolidArrowHead` (5 files).
+
+The overprint IDs 0x6E67, 0x6E6A and 0x6E8B are 0 in every list. IDML
+writes them by the rule of object styles (`objects.md`, object style
+overprint): `OverprintStroke`, `OverprintFill` and `OverprintGap` where
+the list's stroke, fill or gap colour carries ink, and all three in
+documents saved by 21.4 or later. Over all 1,462 pairs, 4 lists have a
+stroke colour that carries ink (`Color/Black` and process colours) and
+none a fill or gap colour that does (one gap colour is `Paper`); with
+the 12 documents of 21.4 and 21.5 this gives 16 `OverprintStroke` and
+12 `OverprintFill` and `OverprintGap` values, every one `false` as in
+the IDML, and no extra value.
 
 ## Print settings (`PrintPreference`, `PrintBookletPrintPreference`)
 

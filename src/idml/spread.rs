@@ -99,6 +99,31 @@ const STYLE_COMPARED: &[&str] = &[
     "ArrowHeadAlignment",
 ];
 
+/// An overprint attribute with the IDs of its colour, the IDML name of
+/// the colour, the IDs of the tint and its name, and the ID of the flag.
+type Overprint = (&'static str, u32, &'static str, u32, &'static str, u32);
+
+/// The overprint attributes of page items (objects.md, page item
+/// overprint).
+const OVERPRINT: [Overprint; 2] = [
+    (
+        "OverprintFill",
+        0x6E68,
+        "FillColor",
+        0x6E69,
+        "FillTint",
+        0x6E6A,
+    ),
+    (
+        "OverprintStroke",
+        0x6E64,
+        "StrokeColor",
+        0x6E66,
+        "StrokeTint",
+        0x6E67,
+    ),
+];
+
 /// Whether an object style whose category list is `on` turns off the
 /// category of a fill, stroke or corner attribute: `EnableFill` (0x1B933)
 /// for the fill, `EnableStroke` (0x1B934) for the stroke colour,
@@ -859,7 +884,16 @@ impl Writer<'_> {
                 }
             }
         }
-        if tag != "Group" && !form {
+        if tag == "Group" {
+            for overprint @ (name, ..) in OVERPRINT {
+                let style = applied.as_ref().and_then(|a| a.item(name));
+                if let Some(Some(v)) = self.overprint_in_effect(item, overprint)
+                    && v.to_string() != style.unwrap_or("false")
+                {
+                    x.attr(name, v.to_string());
+                }
+            }
+        } else if !form {
             self.item_overprint(x, item, applied.as_deref(), &forced);
         }
         // An item without an object style refers to none, `n`
@@ -1142,6 +1176,45 @@ impl Writer<'_> {
         out
     }
 
+    /// The overprint flag of `overprint` (an `OVERPRINT` entry) that a
+    /// page item has in effect: its own flag, else its object style's
+    /// value, else `false`. Before 21.4 an item whose fill or stroke puts
+    /// no ink on the page has none (`Some(None)`). A group
+    /// has the flag that all its children with one share, `Some(None)`
+    /// when none has one; `None` when they differ, and for a form field
+    /// (objects.md, page item overprint).
+    fn overprint_in_effect(&self, item: &PageItem, overprint: Overprint) -> Option<Option<bool>> {
+        match item.kind {
+            ItemKind::Group => {
+                let mut shared = None;
+                for c in &item.children {
+                    match (self.overprint_in_effect(c, overprint)?, shared) {
+                        (None, _) => {}
+                        (Some(v), None) => shared = Some(v),
+                        (Some(v), Some(s)) if v == s => {}
+                        _ => return None,
+                    }
+                }
+                Some(shared)
+            }
+            ItemKind::Form(_) => None,
+            _ => {
+                let applied = item.object_style.and_then(|u| self.style_values(u));
+                if !self.saved_by((21, 4)) && !self.puts_ink(item, applied.as_deref(), overprint)
+                {
+                    return Some(None);
+                }
+                match item.attrs.get(overprint.5).and_then(Value::as_u32) {
+                    Some(v @ 0..=1) => Some(Some(v == 1)),
+                    Some(_) => None,
+                    None => Some(Some(
+                        applied.as_ref().and_then(|a| a.item(overprint.0)) == Some("true"),
+                    )),
+                }
+            }
+        }
+    }
+
     /// The values of `values_in_effect` that all children of `group`
     /// have. EPS text has no corner values and is left out for those.
     fn shared_values(&self, group: &PageItem) -> Vec<(&'static str, String, bool)> {
@@ -1254,6 +1327,31 @@ impl Writer<'_> {
         }
     }
 
+    /// Whether the fill or stroke of `overprint` (an `OVERPRINT` entry)
+    /// puts ink on the page: the colour (the item's, else its object
+    /// style's) carries ink and the tint is not 0 (objects.md, page item
+    /// overprint).
+    fn puts_ink(
+        &self,
+        item: &PageItem,
+        applied: Option<&applied::StyleValues>,
+        (_, color, color_name, tint, tint_name, _): Overprint,
+    ) -> bool {
+        let ink = match item.attrs.get(color).and_then(Value::as_u32) {
+            Some(c) => self.carries_ink(c),
+            None => applied
+                .and_then(|a| a.item(color_name))
+                .is_some_and(|r| self.reference_carries_ink(r)),
+        };
+        let tint = match item.attrs.get(tint).and_then(Value::as_f64) {
+            Some(t) => Some(t),
+            None => applied
+                .and_then(|a| a.item(tint_name))
+                .and_then(|t| t.parse().ok()),
+        };
+        ink && tint != Some(0.0)
+    }
+
     /// `OverprintFill` and `OverprintStroke` of a page item, where its
     /// fill or stroke puts ink on the page (objects.md, page item
     /// overprint).
@@ -1264,37 +1362,8 @@ impl Writer<'_> {
         applied: Option<&applied::StyleValues>,
         forced: &dyn Fn(&str) -> bool,
     ) {
-        for (name, color, color_name, tint, tint_name, flag) in [
-            (
-                "OverprintFill",
-                0x6E68,
-                "FillColor",
-                0x6E69,
-                "FillTint",
-                0x6E6A,
-            ),
-            (
-                "OverprintStroke",
-                0x6E64,
-                "StrokeColor",
-                0x6E66,
-                "StrokeTint",
-                0x6E67,
-            ),
-        ] {
-            let ink = match item.attrs.get(color).and_then(Value::as_u32) {
-                Some(c) => self.carries_ink(c),
-                None => applied
-                    .and_then(|a| a.item(color_name))
-                    .is_some_and(|r| self.reference_carries_ink(r)),
-            };
-            let tint = match item.attrs.get(tint).and_then(Value::as_f64) {
-                Some(t) => Some(t),
-                None => applied
-                    .and_then(|a| a.item(tint_name))
-                    .and_then(|t| t.parse().ok()),
-            };
-            if !ink || tint == Some(0.0) {
+        for overprint @ (name, .., flag) in OVERPRINT {
+            if !self.puts_ink(item, applied, overprint) {
                 continue;
             }
             let style = applied.and_then(|a| a.item(name));
