@@ -417,7 +417,7 @@ styles with INDD styles of the same name (486 styles), then checked with
 | 0x1B0D | `DropCapCharacters` | u16 | 79/79 styles; see below |
 | 0x1B0E | `DropCapLines` | u16 | 79/79 styles; see below |
 | 0x1B10 | `BaselineShift` | f64 | 79/79 styles; see below |
-| 0x1B11 | `Capitalization` | 0 Normal, 1 SmallCaps, 2 AllCaps, 3 CapToSmallCap | 77/77 styles; codes 1 and 3 below |
+| 0x1B11 | `Capitalization` | 0 Normal, 1 SmallCaps, 2 AllCaps, 3 CapToSmallCap, 4 LowerCase | 77/77 styles; codes 1, 3 and 4 below |
 | 0x1B12 | `StrokeColor` | swatch UID | 75/75 styles |
 | 0x1B13 | `KerningValue` | ems ×1000; 1e8 = none | 8/8 ranges; scale from a sample and its print PDF, see below |
 | 0x1B15 | `VerticalScale` | fraction ×100 | 79/79 styles; see below |
@@ -715,7 +715,7 @@ another value. The rest of the evidence is a sample and its print PDF:
   `KeepAllLinesTogether`. A boolean that keeps at least two lines
   together at both ends, with the defaults above, is `KeepLinesTogether`.
 
-**`Capitalization` codes 1 and 3.**
+**`Capitalization` codes 1, 3 and 4.**
 
 - Code 1 is `SmallCaps`. In one pair (InDesign 20.2, IDML from the same
   version), 8 of 8 paragraph styles with code 1 have
@@ -729,6 +729,10 @@ another value. The rest of the evidence is a sample and its print PDF:
   pages. So code 3 sets capital letters as small capitals too. Of the values in the IDML schema (`Normal`, `SmallCaps`,
   `AllCaps`, `CapToSmallCap`, `LowerCase`), only `CapToSmallCap` does
   that.
+- Code 4 is `LowerCase`. No pair of the corpus has it: no IDML outside
+  the privately held samples has `LowerCase`, and no paired INDD stores
+  code 4. One privately held sample (DOM 21) has 1 paragraph style with
+  code 4, and its IDML has `Capitalization="LowerCase"` (1 of 1).
 
 The converter leaves out other codes.
 

@@ -347,6 +347,7 @@ pub(super) const TEXT_ATTRS: &[(u32, &str, Kind, bool)] = &[
             (1, "SmallCaps"),
             (2, "AllCaps"),
             (3, "CapToSmallCap"),
+            (4, "LowerCase"),
         ]),
         false,
     ),
