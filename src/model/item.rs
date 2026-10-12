@@ -1390,9 +1390,11 @@ impl<'a> Reader<'a> {
             }),
             _ => Vec::new(),
         };
+        // A preview that can't be read is left out; the graphic is still
+        // read.
         let preview = match contents {
             Some(_) => None,
-            None => self.preview(uid)?,
+            None => self.preview(uid).ok().flatten(),
         };
         Ok(Some(Graphic {
             uid,
@@ -1554,6 +1556,7 @@ impl<'a> Reader<'a> {
     }
 
     /// The raw data object of graphic `uid`'s preview, if it names one.
+    /// The data object itself is not read.
     fn preview(&self, uid: u32) -> Result<Option<u32>, Error> {
         let object = match self.chunk(uid, chunk::GRAPHIC_PREVIEW)? {
             Some(d) if d.len() >= 4 => self.cursor(&d).u32()?,
@@ -2063,6 +2066,14 @@ mod preview_tests {
                     (chunk::GRAPHIC_PREVIEW, uid(11)),
                 ]),
             ),
+            // A preview object that can't be read: two first segments.
+            (15, class::PREVIEW, Vec::new()),
+            (15, class::PREVIEW, Vec::new()),
+            (
+                16,
+                class::IMAGE,
+                synthetic::chunks(&[(chunk::GRAPHIC_PREVIEW, uid(15))]),
+            ),
         ];
         let bytes = synthetic::image(&objects);
         let db = synthetic::database(&bytes, &objects);
@@ -2071,5 +2082,7 @@ mod preview_tests {
         assert_eq!(preview(10), Some(12));
         assert_eq!(preview(13), None);
         assert_eq!(preview(14), None);
+        // A damaged preview is left out; the graphic is still read.
+        assert_eq!(preview(16), None);
     }
 }

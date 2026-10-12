@@ -218,7 +218,8 @@ pub fn convert_file(path: impl AsRef<std::path::Path>) -> Result<Conversion, Err
 }
 
 /// Convert INDD bytes to an IDML package written to `out`, and return the
-/// warnings. See [`convert`]; previews are not read.
+/// warnings. See [`convert`]; the previews are not returned, and their
+/// data is not read.
 pub fn convert_into(
     indd: &[u8],
     name: &str,
@@ -258,7 +259,10 @@ fn convert_with(
         .collect())
 }
 
-/// The previews of the document's graphics, one per preview file.
+/// The previews of the document's graphics, one per preview file. The
+/// graphics are those of every page item the package holds: on spreads and
+/// master spreads, anchored in text (cell text included), in graphic cells,
+/// in groups and in the states of form fields.
 fn read_previews(db: &Database, doc: &model::Document, warnings: &mut Vec<String>) -> Vec<Preview> {
     let mut graphics: std::collections::BTreeMap<u32, Vec<String>> = Default::default();
     let mut items: Vec<&model::PageItem> = doc
@@ -271,6 +275,13 @@ fn read_previews(db: &Database, doc: &model::Document, warnings: &mut Vec<String
                 .iter()
                 .flat_map(|s| s.anchors.values().flatten()),
         )
+        .chain(
+            doc.stories
+                .iter()
+                .flat_map(|s| s.tables.values())
+                .flat_map(|t| &t.cells)
+                .flat_map(|c| &c.items),
+        )
         .collect();
     while let Some(item) = items.pop() {
         for g in &item.graphics {
@@ -282,6 +293,9 @@ fn read_previews(db: &Database, doc: &model::Document, warnings: &mut Vec<String
             }
         }
         items.extend(&item.children);
+        if let model::ItemKind::Form(f) = &item.kind {
+            items.extend(f.states.iter().flat_map(|s| &s.items));
+        }
     }
     graphics
         .into_iter()

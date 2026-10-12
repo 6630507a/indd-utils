@@ -66,7 +66,9 @@ converted on different threads at once.
 `Conversion::previews` holds InDesign's previews of the graphics whose
 file the document does not hold, such as linked images. The package has
 no place for them; an application can show a preview when it cannot read
-the linked file. `convert_into` does not read them.
+the linked file. Every conversion, `convert_into` included, looks up which
+preview each such graphic has; only `convert` reads the preview files and
+returns them.
 
 The library also builds for WebAssembly (`wasm32-unknown-unknown`):
 `indd::convert` needs no file system or other host function, and gives

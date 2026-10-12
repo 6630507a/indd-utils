@@ -2149,7 +2149,7 @@ converter does not use it for them.
 Evidence from the corpus pairs: the raw data object equals the IDML
 `Contents` for 124 of 124 PDFs and 2 of 2 images without a link. One
 more image without a link has 0x8C23 = 0; its IDML `Contents` equals the
-preview data described below, which the converter does not use. In the
+preview data described below, which the converter does not write. In the
 whole corpus, two linked and embedded PDFs also have a 0x2521 object,
 different from the link resource's; with no pair to compare, the
 converter uses the link resource's.
