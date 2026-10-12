@@ -38,7 +38,7 @@ list and absent from the IDML.
 | ID | IDML attribute | Evidence: IDML value equals INDD value |
 |---|---|---|
 | 0x6E68 | `FillColor` (swatch UID) | 1,190 of 1,194 |
-| 0x6E69 | `FillTint` | 10 of 10 |
+| 0x6E69 | `FillTint`; 100 is written as −1 (strokes, below) | 10 of 10 |
 | 0x6E64 | `StrokeColor` (swatch UID) | 78 of 82 |
 | 0x6E65 | `StrokeWeight` | 171 of 171 |
 | 0x6E6D | `MiterLimit` | 778 of 778 |
@@ -134,8 +134,9 @@ style's effective value; for a child group, its own shared value. EPS
 text has no corner values and is left out for the corners. IDML writes
 the shared value when it differs from the group's object style value,
 when the style turns the category off, when the group has no object
-style, and for a stroke tint that every child stores as 100 (written
-−1, above); it leaves the attribute out when the children differ.
+style, and for a fill or stroke tint that every child stores as 100
+(written −1, strokes below); it leaves the attribute out when the
+children differ.
 
 With this rule the converter reproduces, over the groups of the 1,251
 trustworthy pairs of the corpus after 2026-10 (none was written
@@ -149,7 +150,7 @@ before):
 | `StrokeColor` | 1,221 of 1,221 |
 | `CornerRadius`, `TopLeftCornerRadius` | 1,001 of 1,001 each |
 | `StrokeTint` | 664 of 664 |
-| `FillTint` | 379 of 417 |
+| `FillTint` | 417 of 417 |
 | `BottomLeftCornerRadius`, `BottomRightCornerRadius` | 326 of 326 each |
 | `TopRightCornerRadius` | 296 of 296 |
 | `GapColor` | 124 of 124 |
@@ -157,9 +158,8 @@ before):
 | `LeftLineEnd`, `RightLineEnd`, `StrokeAlignment`, `EndJoin`, `EndCap` | 40, 9, 15, 7 and 2 of as many |
 | `StrokeType` | 15 of 17 |
 
-The 38 `FillTint` values follow children whose own `FillTint` the
-converter writes as 100 where IDML has −1 (a difference of the children,
-not of the group rule). The rule adds 27 extra values: 3 documents of
+In 38 of the `FillTint` values every child stores a fill tint of 100,
+and the group has −1. The rule adds 27 extra values: 3 documents of
 versions 10 to 12 whose groups have `CornerRadius` and
 `TopLeftCornerRadius` but not the other three radii, although every
 child has all four, and one `StrokeType`. `OverprintFill` (313 values)
@@ -323,7 +323,11 @@ style value of −1, and IDML writes it as −1. 4,508 items in 192 files
 store `StrokeTint` 100 and have `StrokeTint="-1"` in IDML; no IDML item
 has `StrokeTint="100"`. Items that store −1, or the style's own value,
 have no attribute; one polygon that stores 100 has none either.
-`GapTint` behaves the same (11 items in 2 files store 100).
+`GapTint` behaves the same (11 items in 2 files store 100), and so does
+`FillTint`: over the 1,252 trustworthy pairs, 90 items in 10 files
+store a fill tint of 100 (79 polygons, 76 of them in groups, and 11
+text frames), and all 90 have `FillTint="-1"` in IDML. No page item or
+object style in these IDMLs has `FillTint="100"`.
 
 Over the rectangles, ovals, polygons, graphic lines and text frames of
 the trustworthy pairs the converter reproduces these values; the one

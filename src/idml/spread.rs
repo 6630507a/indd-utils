@@ -116,6 +116,19 @@ fn category_off(name: &str, on: &[u32]) -> bool {
     }
 }
 
+/// Whether the item stores a tint (`FillTint`, `StrokeTint`, `GapTint`)
+/// of 100. IDML writes it as −1, but it differs from a style value of −1
+/// (attributes.md, strokes).
+fn full_tint(item: &PageItem, name: &str) -> bool {
+    let id = match name {
+        "FillTint" => 0x6E69,
+        "StrokeTint" => 0x6E66,
+        "GapTint" => 0x6E8A,
+        _ => return false,
+    };
+    item.attrs.get(id).and_then(Value::as_f64) == Some(100.0)
+}
+
 /// The category of a `TextFramePreference` attribute: the ID that turns
 /// it on in an object style's category list (objects.md, text frame
 /// preferences).
@@ -749,16 +762,6 @@ impl Writer<'_> {
             _ => None,
         };
         let forced = |name: &str| on.is_some_and(|on| category_off(name, on));
-        // A stored tint of 100 is written as −1 but differs from a style
-        // value of −1 (attributes.md, strokes).
-        let full_tint = |name: &str| {
-            let id = match name {
-                "StrokeTint" => 0x6E66,
-                "GapTint" => 0x6E8A,
-                _ => return false,
-            };
-            item.attrs.get(id).and_then(Value::as_f64) == Some(100.0)
-        };
         // A form field's fill, stroke and corner values are not those of
         // its attribute list (objects.md, form fields).
         let form = matches!(item.kind, ItemKind::Form(_));
@@ -784,7 +787,7 @@ impl Writer<'_> {
             // are left out (attributes.md, page item attributes).
             let same = STYLE_COMPARED.contains(&name)
                 && !forced(name)
-                && !full_tint(name)
+                && !full_tint(item, name)
                 && applied
                     .as_ref()
                     .and_then(|s| s.item(name))
@@ -1112,14 +1115,7 @@ impl Writer<'_> {
             }
             let style = applied.as_ref().and_then(|a| a.item(name));
             if let Some((_, v)) = own.iter().find(|(n, _)| *n == name) {
-                let id = match name {
-                    "StrokeTint" => Some(0x6E66),
-                    "GapTint" => Some(0x6E8A),
-                    _ => None,
-                };
-                let full =
-                    id.is_some_and(|id| item.attrs.get(id).and_then(Value::as_f64) == Some(100.0));
-                out.push((name, v.clone(), full));
+                out.push((name, v.clone(), full_tint(item, name)));
                 continue;
             }
             if let Some((_, b)) = base.iter().find(|(n, _)| *n == name) {

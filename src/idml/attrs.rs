@@ -1010,7 +1010,7 @@ impl From<String> for PropValue {
 /// See `docs/format/attributes.md` for the evidence behind each entry.
 pub(super) const ITEM_ATTRS: &[(u32, &str, Kind)] = &[
     (0x6E68, "FillColor", Kind::Swatch),
-    (0x6E69, "FillTint", Kind::Number),
+    (0x6E69, "FillTint", Kind::Tint),
     (0x6E64, "StrokeColor", Kind::Swatch),
     (0x6E65, "StrokeWeight", Kind::Number),
     (0x6E6D, "MiterLimit", Kind::Number),
