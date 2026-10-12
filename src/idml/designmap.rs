@@ -183,10 +183,6 @@ impl Writer<'_> {
             .attr("DOMVersion", &self.dom)
             .attr("Self", "d")
             .attr("StoryList", stories.join(" "));
-        // Defaults without a stored field (idml-values.md, defaults).
-        if self.dom_version().0 == 12 {
-            x.attr("UntitledDocumentCount", "1");
-        }
         // `Name` from DOM 13 (idml-values.md, document attributes).
         if doc.version.major >= 13 {
             x.attr("Name", name);

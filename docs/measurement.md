@@ -140,8 +140,8 @@ Value coverage includes the **defaults**: values that no INDD field
 holds, written because nearly every reference IDML has them
 (`format/idml-values.md`, [defaults](format/idml-values.md#defaults)).
 Over the 1,252 trustworthy pairs the preference, document and language
-defaults of that table reproduce about 8,980 values (0.031 % of
-28,956,596) and write 59 that differ from the reference. The defaults
+defaults of that table reproduce about 8,910 values (0.031 % of
+28,956,596) and write 55 that differ from the reference. The defaults
 of movies, behaviours and animation, which that table links to, add at
 most about 1,000 (their sample counts over all corpus files).
 

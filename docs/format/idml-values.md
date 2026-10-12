@@ -761,15 +761,17 @@ differ. Nothing stored tells the exceptions apart. Counts are over the
 | `XMLExportPreference` | `ViewAfterExport` | `false` | all | 1,251 of 1,252 |
 | `DocumentPreference` | `SpreadHiddenVisibility` | `false` | 20.0 on | 75 of 76 |
 | `Document` | `AppliedMathMLFontSize` | `10` | 20.0 on | 75 of 76 (1 `16`, DOM 20.2) |
-| `Document` | `UntitledDocumentCount` | `1` | 12.0, 12.1 | 68 of 72 (4 `2`) |
 | `Language` named Korean, Japanese or Hebrew, without chunk 0x2D26 | `SingleQuotes`, `DoubleQuotes` | `''`, `""` | all | Korean 448 of 455, Japanese 128 of 130, Hebrew 65 of 66 languages |
 
 No reference before DOM 20.0 has `SpreadHiddenVisibility` or
-`AppliedMathMLFontSize`, and every one from 20.0 has both. Every DOM 12
-reference has `UntitledDocumentCount` (directly after `StoryList`), and
-no other. No stored field follows it; it most likely depends on the
-session of the exporting InDesign. The quotes of the three languages vary with the dictionary
+`AppliedMathMLFontSize`, and every one from 20.0 has both. The quotes of the three languages vary with the dictionary
 preferences of the exporting computer (language quotes, above).
+
+`Document` `UntitledDocumentCount` is not written. Every DOM 12
+reference has it (directly after `StoryList`, `1` in 68 of 72), and no
+other. No stored field follows it; it most likely depends on the session
+of the exporting InDesign. The published IDML schema does not allow it,
+so writing it would make the package fail validation.
 
 Defaults of other elements are documented with their objects:
 
