@@ -5,7 +5,7 @@
 //! path settings, graphic layers) and `idml-values.md`.
 
 use super::*;
-use crate::model::{GraphicLayer, Name};
+use crate::model::{ClippingPath, GraphicLayer, Name};
 
 /// `Space` of an image by its colour space code (and whether it has a
 /// colour table).
@@ -65,42 +65,62 @@ fn scales(m: &Matrix) -> (f64, f64) {
 }
 
 impl Writer<'_> {
-    /// `ClippingPathSettings` of an image, PDF or EPS graphic, and
-    /// `ImageIOPreference` of an image. Values without an INDD field are
-    /// those every exported IDML has, and a graphic without chunk 0x2C1A
-    /// has the values every such graphic has in IDML. See
-    /// `docs/format/objects.md`.
-    pub(super) fn clipping(&self, x: &mut Xml, g: &Graphic, tag: &str) {
-        let (high_resolution, threshold, tolerance, inset, index) = match &g.clipping {
-            Some(c) if c.kind == 0 => (
-                match c.high_resolution {
-                    2 => Some("true"),
-                    0 => Some("false"),
-                    _ => None,
-                },
-                c.threshold.to_string(),
-                num(c.tolerance),
-                num(c.inset),
-                c.index.to_string(),
-            ),
-            Some(_) => return,
-            None => (
-                Some("true"),
-                "25".into(),
-                "2".into(),
-                "0".into(),
-                "-1".into(),
-            ),
+    /// `ClippingPathSettings` of an image, PDF, EPS or placed page, from
+    /// chunk 0x2C1A; a graphic without the chunk has the values every such
+    /// graphic has in IDML. A value that the stored fields do not settle is
+    /// left out. See `docs/format/objects.md`, clipping path settings.
+    pub(super) fn clipping(x: &mut Xml, g: &Graphic) {
+        let default = ClippingPath {
+            kind: 0,
+            tolerance: 2.0,
+            inset: 0.0,
+            threshold: 25,
+            index: -1,
+            flags: 2,
         };
-        x.start("ClippingPathSettings");
-        if let Some(h) = high_resolution {
-            x.attr("UseHighResolutionImage", h);
+        let c = g.clipping.as_ref().unwrap_or(&default);
+        let kind = match c.kind {
+            0 => "None",
+            1 => "DetectEdges",
+            2 => "AlphaChannel",
+            3 => "PhotoshopPath",
+            _ => return,
+        };
+        let path_name = match c.kind {
+            0 | 1 => Some("$ID/"),
+            2 => g.alpha_channel.as_deref(),
+            _ => g
+                .image
+                .as_ref()
+                .and_then(|i| i.clipping_path_name.as_deref()),
+        };
+        // Bits 0x01 and 0x08 are invert and restrict to frame, in an order
+        // not shown: only both set or both clear are read.
+        let invert_restrict = match c.flags & 0x09 {
+            0 => Some("false"),
+            0x09 => Some("true"),
+            _ => None,
+        };
+        x.start("ClippingPathSettings")
+            .attr("UseHighResolutionImage", (c.flags & 0x02 != 0).to_string())
+            .attr("Threshold", c.threshold.to_string())
+            .attr("Tolerance", num(c.tolerance))
+            .attr("InsetFrame", num(c.inset));
+        // The i16 is not the index of an alpha channel (objects.md).
+        if c.kind != 2 {
+            x.attr("Index", c.index.to_string());
         }
-        x.attr("Threshold", threshold)
-            .attr("Tolerance", tolerance)
-            .attr("InsetFrame", inset)
-            .attr("Index", index);
-        x.attrs_missing(self.observed(&format!("{tag}/ClippingPathSettings")).iter());
+        x.attr("ClippingType", kind);
+        if let Some(v) = invert_restrict {
+            x.attr("InvertPath", v);
+        }
+        x.attr("IncludeInsideEdges", "false");
+        if let Some(v) = invert_restrict {
+            x.attr("RestrictToFrame", v);
+        }
+        if let Some(name) = path_name {
+            x.attr("AppliedPathName", name);
+        }
         x.end();
     }
 
@@ -329,6 +349,9 @@ impl Writer<'_> {
                 .cdata(&base64_lines(data), CDATA_SECTION)
                 .end();
         }
+        if !g.clipping_paths.is_empty() {
+            Self::geometry_paths(x, "ClippingPathGeometry", &g.clipping_paths);
+        }
         x.empty(
             "GraphicBounds",
             &[
@@ -339,9 +362,8 @@ impl Writer<'_> {
             ],
         );
         x.end();
-        // The clipping settings of a placed page are not decoded.
-        if !matches!(g.kind, GraphicKind::Svg | GraphicKind::ImportedPage) {
-            self.clipping(x, g, tag);
+        if g.kind != GraphicKind::Svg {
+            Self::clipping(x, g);
         }
         if g.kind == GraphicKind::Image {
             Self::image_io(x, g);

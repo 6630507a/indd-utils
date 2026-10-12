@@ -390,6 +390,9 @@ pub struct Graphic {
     pub contour: Option<Contour>,
     /// Clipping path settings (chunk 0x2C1A), if stored.
     pub clipping: Option<ClippingPath>,
+    /// The clipping path (the graphic's chunk 0x162B), read only for a
+    /// clipping type other than 0.
+    pub clipping_paths: Vec<Path>,
     /// Name, visibility, change counts and the other page item settings.
     pub props: ItemProps,
     /// Chunk 0x1B916.
@@ -443,6 +446,9 @@ pub struct ImageProperties {
     pub indexed: bool,
     /// Keys 0x6C and 0x6D, 16.16 fixed point.
     pub resolution: Option<[f64; 2]>,
+    /// Key 0x7D: the name of the image's clipping path, when its bytes are
+    /// printable ASCII (the encoding of other bytes is not known).
+    pub clipping_path_name: Option<String>,
 }
 
 /// Layers of a placed graphic (chunk 0x177A).
@@ -468,7 +474,8 @@ pub struct GraphicLayer {
 
 /// Clipping path settings of a graphic (chunk 0x2C1A, 37 bytes): u32 type
 /// at 0, f64 tolerance at 4, f64 inset at 12, u8 threshold at 20, i16
-/// index at 23, u8 at 25 (2 = use the high-resolution image). See
+/// index at 23, u8 flags at 25 (0x02 = use the high-resolution image,
+/// 0x01 and 0x08 = invert the path and restrict it to the frame). See
 /// `docs/format/objects.md`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClippingPath {
@@ -477,7 +484,7 @@ pub struct ClippingPath {
     pub inset: f64,
     pub threshold: u8,
     pub index: i16,
-    pub high_resolution: u8,
+    pub flags: u8,
 }
 
 /// Text frame settings, from the frame's multi-column frame object.
@@ -1358,6 +1365,27 @@ impl<'a> Reader<'a> {
                 (None, data)
             }
         };
+        let clipping = match self.chunk(uid, chunk::CLIPPING_PATH)? {
+            Some(d) if d.len() >= 26 => {
+                let f = |o: usize| self.cursor(&d[o..]).f64();
+                Some(ClippingPath {
+                    kind: self.cursor(&d).u32()?,
+                    tolerance: f(4)?,
+                    inset: f(12)?,
+                    threshold: d[20],
+                    index: self.enc().i16_from([d[23], d[24]]),
+                    flags: d[25],
+                })
+            }
+            _ => None,
+        };
+        let clipping_paths = match &clipping {
+            Some(c) if c.kind != 0 => self.paths(uid).unwrap_or_else(|e| {
+                self.warn(format!("graphic {uid}: clipping path not read ({e})"));
+                Vec::new()
+            }),
+            _ => Vec::new(),
+        };
         Ok(Some(Graphic {
             uid,
             kind,
@@ -1370,20 +1398,8 @@ impl<'a> Reader<'a> {
                 Some(d) => Contour::read(self.enc(), &d),
                 None => None,
             },
-            clipping: match self.chunk(uid, chunk::CLIPPING_PATH)? {
-                Some(d) if d.len() >= 26 => {
-                    let f = |o: usize| self.cursor(&d[o..]).f64();
-                    Some(ClippingPath {
-                        kind: self.cursor(&d).u32()?,
-                        tolerance: f(4)?,
-                        inset: f(12)?,
-                        threshold: d[20],
-                        index: self.enc().i16_from([d[23], d[24]]),
-                        high_resolution: d[25],
-                    })
-                }
-                _ => None,
-            },
+            clipping,
+            clipping_paths,
             props: self.item_props(uid).unwrap_or_else(|e| {
                 self.warn(format!("graphic {uid}: settings left out: {e}"));
                 ItemProps::default()
@@ -1474,6 +1490,14 @@ impl<'a> Reader<'a> {
                 0x6C => resolution[0] = value().map(|v| f64::from(v) / 65536.0),
                 0x6D => resolution[1] = value().map(|v| f64::from(v) / 65536.0),
                 0x6F => p.indexed = true,
+                // u8 length n, n bytes of name, then 6 bytes.
+                0x7D => {
+                    p.clipping_path_name = data
+                        .split_first()
+                        .and_then(|(&n, rest)| rest.get(..usize::from(n)))
+                        .filter(|b| !b.is_empty() && b.iter().all(|c| (0x20..0x7F).contains(c)))
+                        .map(|b| b.iter().map(|&c| char::from(c)).collect());
+                }
                 _ => {}
             }
         }

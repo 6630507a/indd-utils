@@ -177,14 +177,14 @@ samples typeset in Japanese, every IDML had `n`.
 corpus IDML files:
 `ClippingType="None"`, `InvertPath="false"`, `IncludeInsideEdges="false"`,
 `RestrictToFrame="false"` and `AppliedPathName="$ID/"` (and for PDF and
-EPS also the values the converter reads for images). The converter writes
-the element only for clipping type 0 in chunk 0x2C1A, which IDML writes
-as `None` (`objects.md`), so `tools/element_values.py` collects only those
-elements (`WRITTEN_FOR`). The 8 images with another `ClippingType` (7
-with `AppliedPathName` set, 1 with `InvertPath` and `RestrictToFrame`
-`true`) are the only elements with other values in the corpus before
-2026-10; the 12,280 elements with `None` in the current corpus (8,993
-images, 2,213 PDF, 1,074 EPS) have the values above. Every `ImageIOPreference` has `AllowAutoEmbedding="true"`. The
+EPS also the values the converter reads for images).
+`tools/element_values.py` collects only the elements with `None`
+(`WRITTEN_FOR`); the 12,280 such elements in the current corpus (8,993
+images, 2,213 PDF, 1,074 EPS) have the values above. The converter
+writes every attribute of the element from chunk 0x2C1A and the rules
+in `objects.md` (clipping path settings), which give these values for
+clipping type 0, and does not use these rows.
+Every `ImageIOPreference` has `AllowAutoEmbedding="true"`. The
 converter writes the values read from the INDD first (`objects.md`,
 clipping path settings).
 

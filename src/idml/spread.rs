@@ -304,7 +304,12 @@ impl Writer<'_> {
 
     /// The `PathGeometry` element of `paths`, without `Properties`.
     pub(super) fn path_geometry_element(x: &mut Xml, paths: &[Path]) {
-        x.start("PathGeometry");
+        Self::geometry_paths(x, "PathGeometry", paths);
+    }
+
+    /// Element `tag` with one `GeometryPathType` per path.
+    pub(super) fn geometry_paths(x: &mut Xml, tag: &str, paths: &[Path]) {
+        x.start(tag);
         for p in paths {
             x.start("GeometryPathType")
                 .attr("PathOpen", p.open.to_string());

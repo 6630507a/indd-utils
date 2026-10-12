@@ -83,6 +83,9 @@ Status values:
 | `MinimumFirstBaselineOffset` | text frame settings | – | open: never varies | 0 on every frame and style; written by the category rule | `objects.md`, text frame preferences |
 | Flex padding order | chunk 0x1E244 | – | open: never varies | the four paddings are equal in every style, and so are the two gaps | `objects.md`, object style settings |
 | `BeforeGroupingLayerReference` | page items (21.4 on) | 12 | open: not examined | 50 values | `objects.md`, page item settings |
+| Path names in a legacy code page | keys 0x7D and 0x80 of image chunk 0x1708 | 10 pairs | open: not decoded | 11 `PhotoshopPath` images whose path name is stored as code page 949 or Shift-JIS bytes; the file does not record the code page, and `AppliedPathName` is left out | `objects.md`, clipping path settings |
+| `Index` of an `AlphaChannel` clipping | chunk 0x2C1A | 1 pair | open: no field found | the image stores -1 at 23 and IDML has 0; left out | `objects.md`, clipping path settings |
+| `InvertPath` and `RestrictToFrame` bits | chunk 0x2C1A, byte 25 | 1 pair | open: never varies | bits 0x01 and 0x08 are set together in the one sample; written only when both are equal | `objects.md`, clipping path settings |
 | Unlinked images without chunk 0x8C23 | placed graphics | 25 pairs | open: no field found | IDML has `Contents` (362 values); the bytes were not located | `objects.md`, graphics pasted without a link |
 | EPS `Contents` that differ | placed graphics | – | open: not examined | 18 of 515 | `objects.md`, graphics pasted without a link |
 | Anchored settings of some nested items | `AnchoredObjectSetting` | 3 | open: not examined | 388 values | `objects.md`, items inside an anchored item |

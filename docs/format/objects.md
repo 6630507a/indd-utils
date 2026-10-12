@@ -1548,29 +1548,87 @@ Images, PDF and EPS graphics may have chunk 0x2C1A (37 bytes):
 
 | Offset | Contents | IDML `ClippingPathSettings` |
 |---|---|---|
-| 0 | u32, 0 in every sample | `ClippingType="None"` |
+| 0 | u32: 0 `None`, 1 `DetectEdges`, 2 `AlphaChannel`, 3 `PhotoshopPath` | `ClippingType` |
 | 4 | f64 | `Tolerance` |
 | 12 | f64 | `InsetFrame` |
 | 20 | u8 | `Threshold` |
-| 23 | i16 | `Index` |
-| 25 | u8: 2 true, 0 false | `UseHighResolutionImage` |
+| 23 | i16 | `Index` (not for type 2, below) |
+| 25 | u8 flags: 0x02 `UseHighResolutionImage`; 0x01 and 0x08 `InvertPath` and `RestrictToFrame` | |
+| 26 | 11 bytes, 0 in every sample | |
 
 Evidence: 75 of 235 images in the same-version pairs have the chunk, and
-all 75 match on these fields (tolerance 2 or 0, threshold 25 or 0). The
-byte at 25 changes together with the threshold and tolerance in the same
-5 images, so it is identified only as the field that is left. PDF (153
-of 206) and EPS (6 of 18) graphics have the chunk with the same values as
-images that use the defaults. Graphics without the chunk (160 images, 53
-PDF, 12 EPS) have `UseHighResolutionImage="true"`, `Threshold="25"`,
-`Tolerance="2"`, `InsetFrame="0"` and `Index="-1"` in IDML, and the
-converter writes those values for them. The converter leaves out the
-element for a type other than 0.
+all 75 match on the tolerance, inset, threshold and index (tolerance 2
+or 0, threshold 25 or 0). PDF (153 of 206) and EPS (6 of 18) graphics
+have the chunk with the same values as images that use the defaults.
+Graphics without the chunk (160 images, 53 PDF, 12 EPS) have
+`UseHighResolutionImage="true"`, `Threshold="25"`, `Tolerance="2"`,
+`InsetFrame="0"` and `Index="-1"` in IDML, and the converter writes
+those values for them.
 
-`InvertPath="false"`, `IncludeInsideEdges="false"`,
-`RestrictToFrame="false"` and `AppliedPathName="$ID/"` have no
-identified field. All 496 images, 386 PDF and 49 EPS graphics with the
-element in the corpus IDML files have these values, and the converter
-writes them (`idml-values.md`).
+Over the trustworthy pairs of the corpus after 2026-10, every graphic
+with the chunk was compared with its IDML element (2,686 graphics):
+
+| INDD | IDML | Graphics |
+|---|---|---|
+| Type 0 | `ClippingType="None"` | 2,655 of 2,655 |
+| Type 1 | `DetectEdges` | 2 of 2 (2 pairs) |
+| Type 2 | `AlphaChannel` | 1 of 1 |
+| Type 3 | `PhotoshopPath` | 28 of 28 (12 pairs) |
+| Flags 0x02 | `UseHighResolutionImage="true"`, `InvertPath="false"`, `RestrictToFrame="false"` | 2,680 of 2,680 |
+| Flags 0x00 | `UseHighResolutionImage="false"`, `InvertPath="false"`, `RestrictToFrame="false"` | 5 of 5 |
+| Flags 0x09 | `UseHighResolutionImage="false"`, `InvertPath="true"`, `RestrictToFrame="true"` | 1 of 1 (type 1, threshold 111, tolerance 3.9) |
+| i16 at 23, types 0, 1 and 3 | `Index` (-1, or 0 in 9 type 3 images) | all |
+
+Bits 0x01 and 0x08 are set together in the one sample, so which is
+`InvertPath` and which `RestrictToFrame` is not shown. The converter
+writes both when the two bits are equal and leaves both out otherwise.
+Other type codes have no sample; the converter leaves out the element
+for them.
+
+The one type 2 image stores -1 at 23, and its IDML has `Index="0"`. No
+other field of the chunk differs from the type 1 and 3 images, so the
+index of the alpha channel is not in this chunk; the converter leaves
+`Index` out for type 2.
+
+`IncludeInsideEdges="false"` has no identified field: all 11,823
+`ClippingPathSettings` elements in the IDML files of the 1,462 corpus
+pairs have it, and the converter writes it.
+
+**Path name.** `AppliedPathName` names the image's path or channel:
+
+| Type | `AppliedPathName` | Graphics |
+|---|---|---|
+| 0 | `$ID/` | all 12,280 `None` elements of the corpus IDML files |
+| 1 | `$ID/` | 2 of 2 |
+| 2 | the first channel name of image chunk 0x177C (text wrap, contour) | 1 of 1 |
+| 3 | the name in key 0x7D of image chunk 0x1708 | 17 of 17 with an ASCII name |
+
+Key 0x7D of the image properties (13 bytes in all samples) holds a u8
+length *n*, *n* bytes of name, then 6 bytes (`00 00 33 33 00 01` or
+`00 00 00 00 00 01`). The name bytes are not Unicode. The other 11 type
+3 images name their path in a legacy code page: in 5 (Korean documents)
+key 0x7D holds bytes that decode in code page 949 to the IDML name; the
+other 6 (Japanese documents) have no key 0x7D, and key 0x80 of the same
+chunk holds the name as bytes that decode in Shift-JIS. None of these
+INDD files has the name as UTF-16 or UTF-8 text, except two where it is
+part of a longer text in another record. The file does not record the
+code page, so the converter writes the name only when every byte is
+printable ASCII (0x20 to 0x7E) and leaves `AppliedPathName` out
+otherwise.
+
+**Geometry.** IDML writes `Properties/ClippingPathGeometry` for every
+graphic of type 1, 2 or 3 (31 of 31 images, 13 pairs), and for no
+graphic of type 0. The paths are those of the graphic's own chunk
+0x162B, in the layout of page item paths: the converter's output equals
+the IDML element exactly, number for number, in all 31 (1 to 8 paths of
+4 to 179 points). The 2,655 graphics of type 0 with chunk 0x162B (1,797
+images, 329 PDF, 528 EPS, 1 WMF graphic) have no `ClippingPathGeometry`.
+IDML puts it before `GraphicBounds`.
+
+**Placed pages.** IDML has `ClippingPathSettings` on every
+`ImportedPage` (42 in 8 pairs, 38 in 7 trustworthy pairs). No placed
+page has chunk 0x2C1A, and all 42 have the values of graphics without
+the chunk; the converter writes those values for them.
 
 **ImageIOPreference.** Chunk 0x1714 of an image:
 
@@ -2050,8 +2108,8 @@ Format Name`), `Properties/GraphicBounds`, `TextWrapPreference` and
 `CropContent`, 1 `CropBleed`; the byte at 18 of 0x2505 is 0 in 28 and
 1 in 13 `CropContent` items, so it is not that field),
 `MetadataPacketPreference` (an XMP packet of an object of class 0x12609
-that chunk 0x12629 names), `ClippingPathSettings`, `GraphicLayerOption`
-and `PDFAttribute`.
+that chunk 0x12629 names), `GraphicLayerOption` and `PDFAttribute`.
+`ClippingPathSettings` is described under clipping path settings.
 
 Evidence: 42 `ImportedPage` elements in 8 pairs (38 in 7 trustworthy
 pairs). `ItemTransform`, `GraphicBounds` and `PageNumber` equal the
