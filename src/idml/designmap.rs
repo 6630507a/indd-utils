@@ -541,8 +541,43 @@ impl Writer<'_> {
                 a.write(&mut x);
             }
         }
+        self.articles(&mut x);
         x.end();
         x.finish()
+    }
+
+    /// Articles, after the assignments (objects.md, articles).
+    /// `ArticleExportStatus` has no stored field; it is `true` in every
+    /// reference (idml-values.md, defaults). A member that is not written
+    /// as an element is left out with a warning.
+    fn articles(&self, x: &mut Xml) {
+        if self.doc.articles.is_empty() {
+            return;
+        }
+        let written = self.written_items();
+        for a in &self.doc.articles {
+            let id = uref(Some(a.uid));
+            x.start("Article")
+                .attr("Self", id.as_str())
+                .attr("Name", a.name.as_str())
+                .attr("ArticleExportStatus", "true");
+            let mut i = 0;
+            for &m in &a.members {
+                if !written.contains(&m) {
+                    self.warnings.borrow_mut().push(format!(
+                        "article {}: member {m} left out: not written",
+                        a.uid
+                    ));
+                    continue;
+                }
+                x.start("ArticleMember")
+                    .attr("Self", format!("{id}ArticleMember{i}"))
+                    .attr("ItemRef", uref(Some(m)));
+                x.end();
+                i += 1;
+            }
+            x.end();
+        }
     }
 
     /// The IDML reference of a TOC style.

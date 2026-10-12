@@ -54,6 +54,8 @@ pub struct Document {
     /// The name of the first assignment, in the language of the edition
     /// that made the document.
     pub assignment_name: Option<String>,
+    /// Articles, in the order of document chunk 0x21B03.
+    pub articles: Vec<Article>,
     /// Named grids (class 0xCD12, chunk 0xCD28: u32, a flag byte, 1 for
     /// a built-in key, and the name), in UID order.
     pub named_grids: Vec<NamedGrid>,
@@ -120,6 +122,15 @@ pub struct Document {
     /// The black swatch's name in the XMP packet: the language of the
     /// edition that saved the document (`objects.md`, saving edition).
     pub black_name: Option<String>,
+}
+
+/// An article (class 0x21B01): its name (chunk 0x13C) and the UIDs of
+/// its member page items (chunk 0x21B02), in order.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Article {
+    pub uid: u32,
+    pub name: String,
+    pub members: Vec<u32>,
 }
 
 /// The stories of the text frames anchored in `story`, in text order
@@ -311,6 +322,7 @@ impl<'a> Reader<'a> {
                 }),
             None => None,
         };
+        let articles = self.articles();
         let users_script = self.users_script(DOC);
         let last_session = self.last_session(DOC);
         let last_session_platform = self.last_session_platform(DOC);
@@ -387,6 +399,7 @@ impl<'a> Reader<'a> {
             axial_shades,
             assignments,
             assignment_name,
+            articles,
             style_groups: objects.style_groups,
             object_styles: objects.object_styles,
             cell_styles: objects.cell_styles,
@@ -496,6 +509,44 @@ impl<'a> Reader<'a> {
             .collect();
         a.sort_unstable();
         a
+    }
+
+    /// The articles listed in document chunk 0x21B03, each once. A listed
+    /// object that is not an article is skipped; an article without a
+    /// readable name or member list is left out with a warning.
+    pub(super) fn articles(&self) -> Vec<Article> {
+        let order = self.uid_list(DOC, chunk::DOC_ARTICLES).unwrap_or_else(|e| {
+            self.warn(format!("articles left out: {e}"));
+            Vec::new()
+        });
+        let mut seen = std::collections::HashSet::new();
+        let mut out = Vec::new();
+        for uid in order {
+            if self.class(uid) != Some(class::ARTICLE) || !seen.insert(uid) {
+                continue;
+            }
+            match self.article(uid) {
+                Ok(Some(a)) => out.push(a),
+                Ok(None) => self.warn(format!("article {uid} left out: no name")),
+                Err(e) => self.warn(format!("article {uid} left out: {e}")),
+            }
+        }
+        out
+    }
+
+    fn article(&self, uid: u32) -> Result<Option<Article>, Error> {
+        let obj = self.object(uid)?;
+        let Some(d) = obj.chunk(chunk::ARTICLE_NAME) else {
+            return Ok(None);
+        };
+        let mut c = self.cursor(d);
+        c.flag()?;
+        let name = c.string()?;
+        let members = match obj.chunk(chunk::ARTICLE_MEMBERS) {
+            Some(d) => self.cursor(d).u32_list()?,
+            None => Vec::new(),
+        };
+        Ok(Some(Article { uid, name, members }))
     }
 
     /// Read every object of the class list whose class the converter

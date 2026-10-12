@@ -764,6 +764,21 @@ impl Writer<'_> {
             ItemKind::Form(f) => form_tag(f.kind),
         };
         x.start(tag).attr("Self", uref(Some(item.uid)));
+        if let Some(list) = &item.article_children {
+            // Only the group's own children: a reference to an item that is
+            // not written would dangle.
+            let (kept, dropped): (Vec<u32>, Vec<u32>) = list
+                .iter()
+                .partition(|u| item.children.iter().any(|c| c.uid == **u));
+            if !dropped.is_empty() {
+                self.warnings.borrow_mut().push(format!(
+                    "group {}: article children {dropped:?} left out: not written in the group",
+                    item.uid
+                ));
+            }
+            let refs: Vec<String> = kept.iter().map(|&u| uref(Some(u))).collect();
+            x.attr("ArticleChildrenList", refs.join(" "));
+        }
         if let ItemKind::TextFrame {
             story,
             previous,

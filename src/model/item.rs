@@ -195,6 +195,9 @@ pub struct PageItem {
     pub label: Vec<(String, String)>,
     /// Animation (chunk 0x2055F).
     pub animation: Option<Animation>,
+    /// A group's article children list (chunk 0x21B05), in stored order;
+    /// `None` without the chunk.
+    pub article_children: Option<Vec<u32>>,
 }
 
 /// Text on the path of a shape or frame (class 0xB320). See
@@ -1250,6 +1253,15 @@ impl<'a> Reader<'a> {
                 Vec::new()
             }),
             animation: self.animation(uid),
+            article_children: if cls == Some(class::GROUP) {
+                self.uid_list_or_none(uid, chunk::GROUP_ARTICLE_CHILDREN)
+                    .unwrap_or_else(|e| {
+                        self.warn(format!("group {uid}: article children list left out: {e}"));
+                        None
+                    })
+            } else {
+                None
+            },
         }))
     }
 

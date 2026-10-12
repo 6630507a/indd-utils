@@ -48,6 +48,8 @@ pub mod class {
     /// A motion preset (IDML `MotionPreset`).
     pub const MOTION_PRESET: u32 = 0x20517;
     pub const ASSIGNMENT: u32 = 0x1BE01;
+    /// An article (objects.md, articles).
+    pub const ARTICLE: u32 = 0x21B01;
     pub const SMOOTH_SHADE: u32 = 0x5533;
     /// Form fields and multi-state objects (IDML `Button`, `CheckBox`,
     /// `RadioButton`, `TextBox`, `ComboBox`, `SignatureField`,
@@ -231,6 +233,14 @@ pub mod chunk {
     pub const LANGUAGE_QUOTES: u32 = 0x2D26;
     /// The name of an assignment, then two strings.
     pub const ASSIGNMENT_NAME: u32 = 0x1BE1B;
+    /// The articles of the document, in order: a UID list.
+    pub const DOC_ARTICLES: u32 = 0x21B03;
+    /// The name of an article: a flag byte and an in-object string.
+    pub const ARTICLE_NAME: u32 = 0x13C;
+    /// The members of an article, in order: a UID list of page items.
+    pub const ARTICLE_MEMBERS: u32 = 0x21B02;
+    /// A group's article children list (IDML `ArticleChildrenList`).
+    pub const GROUP_ARTICLE_CHILDREN: u32 = 0x21B05;
     pub const ANCHOR_CHILDREN: u32 = 0x2C8;
     /// Anchored object settings, of an anchor or an object style.
     pub const ANCHOR_SETTINGS: u32 = 0x2800;

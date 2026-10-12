@@ -1130,6 +1130,19 @@ fn publish_export(enc: Encoding, d: &[u8]) -> Option<Vec<(&'static str, String)>
     read().ok()
 }
 
+/// The EPUB accessibility attributes, in IDML order.
+const EPUB_ACCESSIBILITY: [&str; 9] = [
+    "EpubAccessibilityFeature",
+    "EpubAccessibilityHazard",
+    "EpubAccessibilityMode",
+    "EpubAccessibilityModeSufficient",
+    "EpubAccessibilitySummary",
+    "EpubAccessibilityConformsTo",
+    "EpubAccessibilityCertifiedBy",
+    "EpubAccessibilityCredentials",
+    "EpubAccessibilityReportLink",
+];
+
 /// The EPUB identifier of documents without EPUB export options.
 const EPUB_ID: &str = "urn:uuid:29d919dd-24f5-4384-be78-b447c9dc299b";
 
@@ -2335,6 +2348,22 @@ impl Reader<'_> {
                     }
                 }
             }
+        }
+        // EPUB accessibility from INDD 19.3, page navigation from 19.4
+        // (preferences.md, EPUB accessibility). No sample has a value.
+        let v = (major, version.minor);
+        if v >= (19, 3) {
+            for name in EPUB_ACCESSIBILITY {
+                set("EPubExportPreference", name, String::new());
+                set("EPubFixedLayoutExportPreference", name, String::new());
+            }
+        }
+        if v >= (19, 4) {
+            set(
+                "EPubExportPreference",
+                "EpubCreatePageNavigation",
+                "true".into(),
+            );
         }
         // Fixed layout EPUB export, from DOM 10.
         if major >= 10 {

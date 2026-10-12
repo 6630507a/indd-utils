@@ -453,4 +453,93 @@ mod tests {
         assert_eq!(classify(&[off], None), Shape::Oval);
         assert_eq!(classify(&[round(1)], Some((1, 4))), Shape::Oval);
     }
+
+    #[test]
+    fn writes_articles_and_article_children() {
+        let list = |uids: &[u32]| {
+            let mut d = (uids.len() as u32).to_le_bytes().to_vec();
+            uids.iter().for_each(|u| d.extend(u.to_le_bytes()));
+            d
+        };
+        let name = |s| synthetic::flagged_string(Encoding::default(), 2, s);
+        // The document lists article 5 twice and group 30, which is not an
+        // article; article 7 is not listed. Member 99 is not written.
+        let mut group30 = group(30, &[31, 32]);
+        group30.2.extend(synthetic::chunks(&[(
+            chunk::GROUP_ARTICLE_CHILDREN,
+            list(&[32, 31]),
+        )]));
+        let objects = [
+            (
+                1,
+                class::DOCUMENT,
+                synthetic::chunks(&[(chunk::DOC_ARTICLES, list(&[5, 6, 30, 5]))]),
+            ),
+            (
+                5,
+                class::ARTICLE,
+                synthetic::chunks(&[
+                    (chunk::ARTICLE_NAME, name("Main")),
+                    (chunk::ARTICLE_MEMBERS, list(&[30, 31, 99])),
+                ]),
+            ),
+            (
+                6,
+                class::ARTICLE,
+                synthetic::chunks(&[(chunk::ARTICLE_NAME, name("Side"))]),
+            ),
+            (
+                7,
+                class::ARTICLE,
+                synthetic::chunks(&[(chunk::ARTICLE_NAME, name("Unlisted"))]),
+            ),
+            group30,
+            group(31, &[]),
+            group(32, &[]),
+        ];
+        let bytes = synthetic::image(&objects);
+        let db = synthetic::database(&bytes, &objects);
+        let reader = Reader::new(&db);
+        let articles = reader.articles();
+        let item = reader.page_item(30, None).unwrap().unwrap();
+        assert_eq!(item.article_children, Some(vec![32, 31]));
+        assert_eq!(item.children[0].article_children, None);
+        let doc = Document {
+            articles,
+            spreads: vec![Spread {
+                uid: 2,
+                master_name: None,
+                transform: Matrix::IDENTITY,
+                binding_location: 0,
+                pages: Vec::new(),
+                items: vec![item],
+                guides: Vec::new(),
+                shuffle: None,
+                flattener_resolution: None,
+                show_master_items: None,
+                primary_story: None,
+                transition: None,
+                timing: Vec::new(),
+            }],
+            ..Document::default()
+        };
+        let mut out = Vec::new();
+        let warnings = crate::idml::write(&doc, "a.indd", &mut out).unwrap();
+        let out = String::from_utf8_lossy(&out);
+        let articles = &out[out.find("<Article ").unwrap()..];
+        let articles: String = articles[..articles.find("</Document>").unwrap()]
+            .lines()
+            .map(str::trim)
+            .collect();
+        assert_eq!(
+            articles,
+            "<Article Self=\"u5\" Name=\"Main\" ArticleExportStatus=\"true\">\
+             <ArticleMember Self=\"u5ArticleMember0\" ItemRef=\"u1e\" />\
+             <ArticleMember Self=\"u5ArticleMember1\" ItemRef=\"u1f\" />\
+             </Article>\
+             <Article Self=\"u6\" Name=\"Side\" ArticleExportStatus=\"true\" />"
+        );
+        assert!(out.contains("<Group Self=\"u1e\" ArticleChildrenList=\"u20 u1f\""));
+        assert!(warnings.iter().any(|w| w.contains("member 99 left out")));
+    }
 }

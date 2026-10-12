@@ -108,6 +108,14 @@ impl<'a> Reader<'a> {
         }
     }
 
+    /// The UID list of chunk `id`, or `None` without the chunk.
+    pub(super) fn uid_list_or_none(&self, uid: u32, id: u32) -> Result<Option<Vec<u32>>, Error> {
+        match self.chunk(uid, id)? {
+            Some(data) => self.cursor(&data).u32_list().map(Some),
+            None => Ok(None),
+        }
+    }
+
     /// Children listed in a hierarchy chunk: parent, owner, then a u32 list.
     pub(super) fn children(&self, uid: u32, id: u32) -> Result<Vec<u32>, Error> {
         match self.chunk(uid, id)? {

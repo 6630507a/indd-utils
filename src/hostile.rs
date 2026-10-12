@@ -381,6 +381,7 @@ fn document(seed: u64, ids: &Ids) -> Objects {
         (chunk::DOC_MASTER_SPREADS, class::MASTER_SPREAD),
         (chunk::DOC_STORIES, class::STORY),
         (chunk::DOC_SECTIONS, class::SECTION),
+        (chunk::DOC_ARTICLES, class::ARTICLE),
     ] {
         let n = g.rng.below(4);
         let members = take(&mut g, n);
