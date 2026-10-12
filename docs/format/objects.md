@@ -2012,6 +2012,146 @@ with a warning.
 `LayerCompOption AppliedLayerComp`: chunk 0x9209 of the image, i32 at
 offset 4 (−1, −2 or a comp number). 11 of 11.
 
+## Movies and sounds (classes 0x14801 and 0x14F01)
+
+Evidence: 21 `Movie` and 8 `Sound` elements in 17 trustworthy pairs
+(DOM 8.0: 2 pairs, 10.2: 11, 11.0: 1, 13.1: 1, 18.0: 2), and 128 movies
+in 42 files and 42 sounds in 12 files of the corpus (distinct,
+little-endian, InDesign 3.0 to 18.2; no big-endian sample).
+
+**Where they are.** A movie or sound is listed in the child list (chunk
+0x15B) of a spline item (class 0x6201) and is that frame's only child
+(170 of 170 objects). Its own chunk 0x15B names the frame as parent (29
+of 29 paired) and lists its poster, if any. IDML writes it as a `Movie`
+or `Sound` element, the last child of the frame's `Rectangle` (29 of
+29), with `Self` the object's UID. The frame is written as a frame
+without a graphic: `ContentType="GraphicType"` (its chunk 0x1623 is 1)
+and no `ContourOption` in its text wrap (29 of 29 frames).
+
+**Chunks.**
+
+| Chunk | Contents | IDML | Evidence |
+|---|---|---|---|
+| 0x151 | matrix | `ItemTransform`; identity without the chunk | 29 of 29 (one sound has no chunk and `1 0 0 1 0 0`) |
+| 0x162B | path geometry, as page items | `Properties/PathGeometry` | 29 of 29 |
+| 0x1633 | four f64 | `Properties/GraphicBounds` (left, top, right, bottom) | 29 of 29 |
+| 0x8CBC | u32, u32, u32 link UID, as placed graphics | `Link` | 29 of 29 |
+| 0x15B | hierarchy: spread, parent frame, children (the poster) | | 29 of 29 |
+| 0x14004 | playback settings (below) | `Name`, `Description`, flags, `ControllerSkin` | 29 of 29 |
+| 0x1480C (movie), 0x14F03 (sound) | label at offset 0, as group labels (u16 0x7B7B, u32 count, flagged key and value strings) | `Properties/Label` | 2 movies with one pair match; 6 with count 0 and 21 without the chunk have no `Label` |
+| 0x1B916 | object style | `AppliedObjectStyle` | 29 of 29 |
+| 0x21D4E, 0x21D50, 0x21D53, 0x1424, 0x22228, 0x2C32 | page item settings | change counts, `OverriddenPageItemProps`, layout constraints, `Visible` | 29 of 29 each |
+| 0x3703 | text wrap | `TextWrapPreference` | 29 of 29 (7 with mode 0; 22 without the chunk, all `None` with offsets 0) |
+| 0x6E03 | attribute list | `TransparencySetting` | 1 movie with a gradient feather |
+| 0x2C10 | name chunk of page items | not used: flag 1 and an empty string where present (7 objects); `Name` comes from chunk 0x14004 | |
+
+Not read: 0x14022 (below), 0x8C39, 0x8C24, 0x1623, 0x2C5D, 0x14009,
+0x6E20, 0x6EDD and the other page item chunks that 7 of the 29 paired
+objects carry (0x1E206, 0x1E22B, 0xB30A, 0x2056D, 0x2055F, 0x3723).
+IDML has no `ObjectExportOption`, `AnimationSetting` or `TimingSetting`
+on any of the 29 (all 0x2056D counts are 0 and all 0x2055F are `00
+00`).
+
+**Playback settings (chunk 0x14004).** A sequence of lists, each a u32
+count and that many entries of u32 key and a value whose type depends
+on the list: list 1 u16, list 2 u32, lists 3 to 6 unknown (count 0 in
+all 168 chunks that parse), list 7 a flag byte and an in-object string.
+The chunk ends after list 7 in 167 of 168; one 10.1 movie has one more
+list (count 1, key 0x14009, 16 bytes) with no IDML counterpart. A 3.0
+movie uses keys 0x14800 to 0x14804 and another layout. Keys within a
+list are in no fixed order. Every u16 value is 1: IDML has `true` when
+the key is present and `false` when it is not.
+
+| Key | List | `Movie` | `Sound` | Evidence (paired) |
+|---|---|---|---|---|
+| 0x14000 | string | `Name`, as stored | `Name` | 21 of 21, 8 of 8 |
+| 0x14002 | string | `Description`; `""` without the key | `Description` (no sample with the key) | 1 with the key, 28 without |
+| 0x14008 | string | `ControllerSkin`; `""` without the key | | 19 of 19 (11 `SkinOverAll`, 1 empty, 7 without the key) |
+| 0x14003 | u16 | `CustomPoster` | | 21 of 21 (14 `true`) |
+| 0x14006 | u16 | `PlayOnPageTurn` | `PlayOnPageTurn` | 21 of 21 (3 `true`), 8 of 8 (7 `true`) |
+| 0x1400C | u16 | `ShowController` | | 19 of 19 (5 `true`) |
+| 0x1400E | u16 | `MovieLoop="true"` and `PlayMode="RepeatPlay"`; without it `false` and `Once` | `SoundLoop` | 21 of 21 (2 with the key), 8 of 8 (5 `true`) |
+| 0x14004 | u16 | `EmbedInPDF` (never stored on a movie: `false` in 21 of 21) | `EmbedInPDF` | 8 of 8 sounds have it and `true` |
+| 0x1400D | u16 | | `StopOnPageTurn` | 8 of 8 (2 `true`) |
+| 0x140FF | u16 | not identified (1 movie; no attribute differs) | | |
+| 0x14007 | u32 | not identified (0 in 139, 5485 in one unpaired movie) | | |
+| 0x140FE | u32 | not identified (5 in all 170) | | |
+
+The 14 movies with `CustomPoster="true"` have a poster without a link,
+the 7 with `false` a linked poster; the converter takes the key. A chunk
+whose lists 3 to 6 are not empty gives the flags without the strings
+and a warning; a damaged chunk gives the defaults and a warning.
+
+**Values without a stored field.** These are the same in every IDML of
+the corpus with these elements (19 files, paired or not: DOM 8.0, 10.1,
+10.2, 11.0, 13.1, 18.0). No stored field was found for them; the
+converter writes them as defaults.
+
+| Element | Attribute | Value | Samples |
+|---|---|---|---|
+| `Movie` | `FloatingWindow` | `false` | 27 of 27 |
+| `Movie` | `FloatingWindowPosition` | `Center` | 27 of 27 |
+| `Movie` | `FloatingWindowSize` | `Full` | 27 of 27 |
+| `Movie` | `ShowControls` | `false` | 26 of 26 (DOM 8.0 to 13.1) |
+| `Sound` | `DoNotPrintPoster` | `false` | 13 of 13 |
+| both | `LocalDisplaySetting` | `Default` | 40 of 40 |
+
+`ShowControls`, `ControllerSkin` and `ShowController` are on all 26
+movies of DOM 8.0 to 13.1, also on the 7 whose chunk has neither key
+0x14008 nor 0x1400C, and on none in the one DOM 18.0 file. They follow
+the version, not the stored keys. No IDML of DOM 14 to 17 has a movie;
+the converter writes them below DOM 18.
+
+**`FilePath`** is the `LinkResourceURI` of the media's own link as a
+native path: without `file:`, percent-decoded as UTF-8, and with `\`
+for `/` in a path that starts with a drive letter (`C:/`). From the
+IDML's own link URI this gives `FilePath` in 29 of 29 (25 Windows
+paths, 4 Mac paths). From the INDD's link it gives 8 of 29: the other
+21 links were resolved to another file on the exporting computer, and
+the IDML has that file's path in both `Link` and `FilePath`. A media
+object without a link has no `FilePath`.
+
+**Children.** IDML order (29 of 29): `Properties` (`PathGeometry`,
+`GraphicBounds`, then `Label`), `TransparencySetting`,
+`TextWrapPreference`, the poster `Image`, `Link`.
+
+- Text wrap: as for placed graphics (chunk 0x3703; without it mode
+  `None` and offsets 0), 29 of 29. `ContourOption` is in the wrap of
+  every movie and sound with a poster (26 of 26) and of none without (3
+  of 3), as a frame has one only with a graphic. All 26 are
+  `SameAsClipping`, `false`, `$ID/`; no media object has chunk 0x373D,
+  and the poster's contour and the preferences' contour agree in all
+  26, so either can be the source. The converter uses the poster's.
+- Poster: 125 of 128 movies and 9 of 42 sounds list one child, an image
+  (class 0x1702). IDML writes it as an `Image` child (26 of 26 paired),
+  like any image: 12 linked, 14 with their file in the document
+  (`Properties/Contents`). Its `EffectivePpi` uses the transforms of the
+  image, the movie or sound, the frame and their ancestors (12 of 12
+  linked posters).
+- `Link`: the layout of image links (chunks 0x8C9B and 0x8C92). For the
+  8 links whose URI is the same in INDD and IDML, `LinkResourceFormat`
+  (`$ID/Flash H264 Video`, `$ID/MP3`, `$ID/Flash Video`, `$ID/SWF
+  (Shockwave Flash)`), `LinkResourceSize` and `LinkImportStamp` match 8
+  of 8.
+
+**Media file properties (chunk 0x14022).** The same kind of typed list,
+with list types u16, u32, u64, f64, four f64 and flagged string (29 of
+29 paired chunks end after the sixth list). Keys seen: 0x14002 and
+0x14004 (u16); 0x140FE, 0x14F00 (sounds: 44100, the sample rate) and
+0x14F02 (sounds: 128) (u32); 0x14000 (u64); 0x14006 (f64, movies: the
+duration in seconds); 0x14001 (four f64, movies: the frame size, for
+example 0 0 640 640); 0x14003 and 0x14005 (strings; 0x14005 of sounds
+is an older import path that matches neither link URI). IDML writes
+none of these: no IDML in the corpus has `IntrinsicBounds`,
+`CanChoosePosters` or `PosterAvailable`, a `NavigationPoint` or a
+`Movie` `URL`.
+
+**References.** `MovieBehavior/@MovieItem` (6 in 5 pairs) and
+`SoundBehavior/@SoundItem` (2 in 1 pair) name a `Movie` or `Sound` of
+the same IDML (8 of 8); see button behaviours. `TimingTarget` elements
+with `TargetRole` 132354 (3 movies) and 132356 (7 sounds), in 9 pairs,
+name a written `Movie` or `Sound` in 10 of 10; see timing lists.
+
 ## Text on a path (class 0xB320)
 
 A shape or text frame with text on its path names a text path object
@@ -2214,8 +2354,7 @@ Evidence: 206 behaviour elements in 193 buttons of 26 pairs (all
 trustworthy, versions 8.0 to 18.0), and 547 behaviour objects in 78
 documents of the corpus (InDesign 3.0 to 18.2, both byte orders). The
 converter writes every behaviour type that has a paired sample, and
-`compare.py` finds all their values in its output except the 8
-`MovieItem` and `SoundItem` references (below).
+`compare.py` finds all their values in its output.
 
 **Behaviour list (chunk 0x15601).** A form field lists its behaviours
 by event:
@@ -2327,9 +2466,10 @@ swapped (`big-endian.md`).
 - In the converter's output the button (206 of 206) and every
   `AssociatedMultiStateObject` (45 of 45), `FieldsToHide` UID (124 of
   124) and `FieldsToShow` UID (25 of 25) exist as `Self`.
-- `MovieItem` and `SoundItem` (the stored movie and sound UIDs, 6 and 2
-  of the paired values) reference `Movie` and `Sound` elements, which
-  the converter does not write. They are left out.
+- `MovieItem` and `SoundItem` are the stored movie and sound UIDs: each
+  names a `Movie` or `Sound` of the same IDML (6 and 2 of 6 and 2;
+  movies and sounds). A UID that is not a written movie or sound is
+  left out.
 - The sound's f64 and last u32 and the submit u32 have no IDML
   attribute.
 
@@ -2448,10 +2588,11 @@ Roles by target class: 132353 button behaviours (classes 0x1562C,
 132355 spline items, groups and multi-state objects (100), 132356
 sounds (7). The stored value is written as is.
 
-The converter leaves out a target whose element it does not write
-(`Movie` and `Sound` elements, unread behaviours: 7 sound and 3 movie
-targets of 163), with a warning, and numbers `Placement` over the
-targets kept. A group or list left empty is left out too: no sample has
+Every target of the samples names an element the converter writes:
+a page item, a button behaviour, or a movie or sound (7 sound and 3
+movie targets of 163; movies and sounds). The converter leaves out a
+target whose element it does not write, with a warning, and numbers
+`Placement` over the targets kept. A group or list left empty is left out too: no sample has
 an empty one (159 groups, 96 lists).
 
 Example, a spread with one list, one group and one target:
