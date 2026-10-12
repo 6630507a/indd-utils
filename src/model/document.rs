@@ -854,7 +854,7 @@ impl<'a> Reader<'a> {
 }
 
 /// `s` with `%xx` escapes replaced by their bytes, read as UTF-8.
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());
     let mut i = 0;

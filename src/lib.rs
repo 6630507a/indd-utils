@@ -260,9 +260,10 @@ fn convert_with(
 }
 
 /// The previews of the document's graphics, one per preview file. The
-/// graphics are those of every page item the package holds: on spreads and
+/// graphics are those of every page item the package holds (on spreads and
 /// master spreads, anchored in text (cell text included), in graphic cells,
-/// in groups and in the states of form fields.
+/// in groups and in the states of form fields) and the posters of their
+/// movies and sounds.
 fn read_previews(db: &Database, doc: &model::Document, warnings: &mut Vec<String>) -> Vec<Preview> {
     let mut graphics: std::collections::BTreeMap<u32, Vec<String>> = Default::default();
     let mut items: Vec<&model::PageItem> = doc
@@ -284,7 +285,11 @@ fn read_previews(db: &Database, doc: &model::Document, warnings: &mut Vec<String
         )
         .collect();
     while let Some(item) = items.pop() {
-        for g in &item.graphics {
+        for g in item
+            .graphics
+            .iter()
+            .chain(item.media.iter().filter_map(|m| m.poster.as_ref()))
+        {
             if let Some(data) = g.preview {
                 graphics
                     .entry(data)

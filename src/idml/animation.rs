@@ -72,11 +72,31 @@ impl Writer<'_> {
         self.warnings.borrow_mut().push(msg);
     }
 
-    /// UIDs a `TimingTarget` can refer to: the page items written and the
-    /// behaviours of the buttons among them (`form_behaviors`).
+    /// UIDs of the movies and sounds written: in the page items written
+    /// and in the states of form fields among them.
+    pub(super) fn written_media(&self) -> &std::collections::HashSet<u32> {
+        self.media_uids.get_or_init(|| {
+            let mut out = std::collections::HashSet::new();
+            let mut stack = self.written_page_items();
+            while let Some(item) = stack.pop() {
+                out.extend(item.media.iter().map(|m| m.uid));
+                if let ItemKind::Form(f) = &item.kind {
+                    for i in f.states.iter().flat_map(|s| &s.items) {
+                        stack.push(i);
+                        stack.extend(&i.children);
+                    }
+                }
+            }
+            out
+        })
+    }
+
+    /// UIDs a `TimingTarget` can refer to: the page items, movies and
+    /// sounds written and the behaviours of the buttons among the items
+    /// (`form_behaviors`).
     fn timing_targets(&self) -> &std::collections::HashSet<u32> {
         self.timing_targets.get_or_init(|| {
-            let mut out = std::collections::HashSet::new();
+            let mut out = self.written_media().clone();
             for item in self.written_page_items() {
                 out.insert(item.uid);
                 if let ItemKind::Form(f) = &item.kind

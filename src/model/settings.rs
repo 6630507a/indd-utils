@@ -313,6 +313,8 @@ impl<'a> Reader<'a> {
             Some(class::SPLINE_ITEM) => (chunk::ITEM_SHAPE, 6),
             Some(class::GROUP) => (chunk::GROUP_LABEL, 0),
             Some(class::BUTTON | class::MULTI_STATE) => (chunk::FORM_LABEL, 0),
+            Some(class::MOVIE) => (chunk::MOVIE_LABEL, 0),
+            Some(class::SOUND) => (chunk::SOUND_LABEL, 0),
             _ => return Ok(Vec::new()),
         };
         match self.chunk(uid, id)? {

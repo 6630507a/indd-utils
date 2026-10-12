@@ -15,6 +15,7 @@ mod export;
 mod format;
 mod graphic;
 mod kind;
+mod media;
 mod pages;
 mod resources;
 mod spread;
@@ -83,6 +84,8 @@ struct Writer<'a> {
     anchors: std::cell::RefCell<Vec<crate::model::AnchorSettings>>,
     /// UIDs a `TimingTarget` can refer to (`timing_targets`).
     timing_targets: std::cell::OnceCell<std::collections::HashSet<u32>>,
+    /// UIDs of the movies and sounds written (`written_media`).
+    media_uids: std::cell::OnceCell<std::collections::HashSet<u32>>,
 }
 
 /// Attributes observed on an element path (`values::element_attrs`).
@@ -339,6 +342,7 @@ pub fn write(doc: &Document, name: &str, out: impl std::io::Write) -> std::io::R
         topics: designmap::topic_refs(doc),
         anchors: Default::default(),
         timing_targets: Default::default(),
+        media_uids: Default::default(),
     };
     let mut files: BTreeMap<String, String> = BTreeMap::new();
     files.insert(
@@ -421,6 +425,7 @@ impl<'a> Writer<'a> {
             topics: Default::default(),
             anchors: Default::default(),
             timing_targets: Default::default(),
+            media_uids: Default::default(),
         }
     }
 }

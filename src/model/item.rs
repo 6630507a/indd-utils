@@ -169,6 +169,9 @@ pub struct PageItem {
     pub uid: u32,
     /// Placed graphics (images, PDF, EPS, SVG) inside a frame.
     pub graphics: Vec<Graphic>,
+    /// Placed movies and sounds inside a frame. They are not graphics:
+    /// the frame's content type and contour do not depend on them.
+    pub media: Vec<Media>,
     pub kind: ItemKind,
     pub transform: Matrix,
     pub paths: Vec<Path>,
@@ -1139,12 +1142,15 @@ impl<'a> Reader<'a> {
         };
         let mut children = Vec::new();
         let mut graphics = Vec::new();
+        let mut media = Vec::new();
         let mut text_column = None;
         let mut frame_prefs = None;
         let mut frame_mcf = None;
         for &child in &child_uids {
             if let Some(g) = self.graphic(child)? {
                 graphics.push(g);
+            } else if let Some(m) = self.media(child)? {
+                media.push(m);
             } else if self.class(child) == Some(class::MULTI_COLUMN_FRAME) {
                 frame_prefs = self.text_frame_preferences(uid, child)?;
                 frame_mcf = Some(child);
@@ -1213,6 +1219,7 @@ impl<'a> Reader<'a> {
         Ok(Some(PageItem {
             uid,
             graphics,
+            media,
             kind,
             transform,
             paths,

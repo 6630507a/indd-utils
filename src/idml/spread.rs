@@ -1131,6 +1131,9 @@ impl Writer<'_> {
         for g in &item.graphics {
             self.placed_graphic(x, g, &item.transform.then(outer));
         }
+        for m in &item.media {
+            self.media(x, m, &item.transform.then(outer));
+        }
         x.end();
     }
 
@@ -1400,6 +1403,7 @@ impl Writer<'_> {
                 .collect::<Vec<_>>()
                 .join(" ")
         };
+        let media = |uid: u32| self.written_media().contains(&uid).then(|| uref(Some(uid)));
         x.start(b.kind.element()).attr("Self", uref(Some(b.uid)));
         // Constants without a stored field (objects.md, button
         // behaviours): `AnchorName`, `GoBackOnRollOff`,
@@ -1447,18 +1451,20 @@ impl Writer<'_> {
                 x.attr("AssociatedMultiStateObject", uref(Some(*mso)))
                     .attr("LoopsToNextOrPrevious", "true");
             }
-            // `MovieItem` and `SoundItem` reference `Movie` and `Sound`
-            // elements, which are not written.
+            // `MovieItem` and `SoundItem` name a `Movie` or `Sound` of the
+            // package; another UID is left out.
             BehaviorKind::Movie {
+                item,
                 operation: o,
                 point,
-                ..
             } => {
-                x.attr_opt("NavigationPointID", point.map(|p| p.to_string()))
+                x.attr_opt("MovieItem", media(*item))
+                    .attr_opt("NavigationPointID", point.map(|p| p.to_string()))
                     .attr_opt("Operation", operation(*o, &["Play"]));
             }
-            BehaviorKind::Sound { operation: o, .. } => {
-                x.attr_opt("Operation", operation(*o, &["Play", "Stop"]));
+            BehaviorKind::Sound { item, operation: o } => {
+                x.attr_opt("SoundItem", media(*item))
+                    .attr_opt("Operation", operation(*o, &["Play", "Stop"]));
             }
         }
         let name = if b.name.builtin {

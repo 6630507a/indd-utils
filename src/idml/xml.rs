@@ -128,6 +128,12 @@ impl Xml {
         self
     }
 
+    /// Remove attribute `name` from the open start tag.
+    pub fn remove_attr(&mut self, name: &str) -> &mut Self {
+        self.attrs.retain(|(k, _)| k != name);
+        self
+    }
+
     /// Whether the open start tag has attribute `name`.
     pub fn has_attr(&self, name: &str) -> bool {
         self.open && self.attrs.iter().any(|(k, _)| k == name)

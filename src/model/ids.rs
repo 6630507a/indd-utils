@@ -29,6 +29,9 @@ pub mod class {
     pub const TEXT_PATH: u32 = 0xB320;
     /// A placed InDesign page (IDML `ImportedPage`).
     pub const IMPORTED_PAGE: u32 = 0x6607;
+    /// A placed movie and sound (IDML `Movie`, `Sound`).
+    pub const MOVIE: u32 = 0x14801;
+    pub const SOUND: u32 = 0x14F01;
     /// The column of a text path's multi-column frame.
     pub const TEXT_PATH_COLUMN: u32 = 0xB318;
     /// A plain byte stream, such as the file of an embedded graphic.
@@ -246,6 +249,11 @@ pub mod chunk {
     pub const GROUP_LABEL: u32 = 0x2C0B;
     /// Label of a button or multi-state object, as `GROUP_LABEL`.
     pub const FORM_LABEL: u32 = 0x14582;
+    /// Label of a movie and of a sound, as `GROUP_LABEL`.
+    pub const MOVIE_LABEL: u32 = 0x1480C;
+    pub const SOUND_LABEL: u32 = 0x14F03;
+    /// Playback settings of a movie or sound: typed key lists.
+    pub const MEDIA_SETTINGS: u32 = 0x14004;
     /// u16, then u32 shape code: 1 line, 2 or 3 rectangle, 4 or 5
     /// oval, 0 or 6 to 8 polygon, 9 none.
     pub const ITEM_SHAPE: u32 = 0x6204;
