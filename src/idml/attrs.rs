@@ -933,6 +933,167 @@ pub(super) const TEXT_ATTRS: &[(u32, &str, Kind, bool)] = &[
     (0x42A3, "ScaleAffectsLineHeight", Kind::Bool, false),
     (0x4233, "RubyFont", Kind::FontOrNone, true),
     (0x4257, "KentenFillColor", Kind::SwatchOrText, true),
+    // Placed by the order of the attribute list and the payload type
+    // (attributes.md, attributes placed by order).
+    (0x1B41, "StrokeTint", Kind::Number, false),
+    (0x1B43, "OverprintStroke", Kind::Bool, false),
+    (0x1B45, "GradientStrokeAngle", Kind::Number, false),
+    (0x1B47, "GradientStrokeLength", Kind::Number, false),
+    (0x1B49, "GradientStrokeStart", Kind::Point, false),
+    (0x1B5A, "RuleAboveOverprint", Kind::Bool, false),
+    (0x1B5B, "RuleBelowOverprint", Kind::Bool, false),
+    (0x1B6C, "OTFOrdinal", Kind::Bool, false),
+    (0x1B6D, "OTFFraction", Kind::Bool, false),
+    (0x1B79, "RuleAboveGapOverprint", Kind::Bool, false),
+    (0x1B7B, "RuleBelowGapColor", Kind::SwatchOrText, true),
+    (0x1B7C, "RuleBelowGapTint", Kind::Number, false),
+    (0x1B7D, "RuleBelowGapOverprint", Kind::Bool, false),
+    (0x1B82, "OTFMark", Kind::Bool, false),
+    (0x1B84, "OTFLocale", Kind::Bool, false),
+    (0x1B88, "OTFSlashedZero", Kind::Bool, false),
+    (0x1B8A, "OTFHistorical", Kind::Bool, false),
+    (0x1B90, "UnderlineGapTint", Kind::Number, false),
+    (0x1B97, "StrikeThroughGapColor", Kind::SwatchOrText, true),
+    (0x1B98, "StrikeThroughGapOverprint", Kind::Bool, false),
+    (0x1B99, "StrikeThroughGapTint", Kind::Number, false),
+    (0x1B9B, "StrikeThroughOverprint", Kind::Bool, false),
+    (0x1BC0, "SplitColumnOutsideGutter", Kind::Number, false),
+    (0x1BC3, "SpanColumnMinSpaceBefore", Kind::Number, false),
+    (
+        0x1BD8,
+        "ParagraphShadingSuppressPrinting",
+        Kind::Bool,
+        false,
+    ),
+    (0x1BF8, "ParagraphBorderOverprint", Kind::Bool, false),
+    (0x1BFB, "ParagraphBorderGapTint", Kind::Number, false),
+    (0x1BFC, "ParagraphBorderGapOverprint", Kind::Bool, false),
+    (0x4237, "RubyYScale", Kind::Percent, false),
+    (0x4238, "RubyXOffset", Kind::Number, false),
+    (0x423D, "RubyOverhang", Kind::Bool, false),
+    (0x4240, "RubyFill", Kind::SwatchOrText, true),
+    (0x4241, "RubyTint", Kind::Number, false),
+    (
+        0x4242,
+        "RubyOverprintFill",
+        Kind::Enum(&[(0xFFFF, "Auto")]),
+        false,
+    ),
+    (0x4243, "RubyStroke", Kind::SwatchOrText, true),
+    (0x4244, "RubyStrokeTint", Kind::Number, false),
+    (
+        0x4245,
+        "RubyOverprintStroke",
+        Kind::Enum(&[(0xFFFF, "Auto")]),
+        false,
+    ),
+    (0x4246, "RubyWeight", Kind::Number, false),
+    (0x424A, "KentenFont", Kind::FontOrNone, true),
+    (0x424D, "KentenYScale", Kind::Percent, false),
+    (0x424F, "KentenPlacement", Kind::Number, false),
+    (
+        0x4250,
+        "KentenAlignment",
+        Kind::Enum(&[(1, "AlignKentenCenter")]),
+        false,
+    ),
+    (
+        0x4251,
+        "KentenPosition",
+        Kind::Enum(&[(0, "AboveRight")]),
+        false,
+    ),
+    (
+        0x4252,
+        "KentenCustomCharacter",
+        Kind::Enum(&[(0, "")]),
+        false,
+    ),
+    (
+        0x4253,
+        "KentenCharacterSet",
+        Kind::Enum(&[(0, "CharacterInput")]),
+        false,
+    ),
+    (0x4258, "KentenTint", Kind::Number, false),
+    (
+        0x4259,
+        "KentenOverprintFill",
+        Kind::Enum(&[(0xFFFF, "Auto")]),
+        false,
+    ),
+    (0x425A, "KentenStrokeColor", Kind::SwatchOrText, true),
+    (0x425B, "KentenStrokeTint", Kind::Number, false),
+    (
+        0x425C,
+        "KentenOverprintStroke",
+        Kind::Enum(&[(0xFFFF, "Auto")]),
+        false,
+    ),
+    (0x425D, "KentenWeight", Kind::Number, false),
+    (0x425F, "TatechuyokoXOffset", Kind::Number, false),
+    (0x4260, "TatechuyokoYOffset", Kind::Number, false),
+    (0x4262, "AutoTcyIncludeRoman", Kind::Bool, false),
+    (0x4263, "Jidori", Kind::Number, false),
+    (0x4267, "CharacterRotation", Kind::Number, false),
+    (0x4278, "ShataiMagnification", Kind::Number, false),
+    (0x428E, "WarichuCharsBeforeBreak", Kind::Number, false),
+    (0x428F, "WarichuCharsAfterBreak", Kind::Number, false),
+    (0x4294, "OTFHVKana", Kind::Bool, false),
+    (0x4296, "OTFRomanItalics", Kind::Bool, false),
+    (0x42A4, "ParagraphGyoudori", Kind::Bool, false),
+    (0x42B3, "RubyAutoTcyAutoScale", Kind::Bool, false),
+    (0x1A407, "NumberingStartAt", Kind::Number, false),
+    (
+        0x1DF05,
+        "ParagraphBorderStrokeEndJoin",
+        Kind::Enum(&[(0, "MiterEndJoin")]),
+        false,
+    ),
+    (
+        0x1DF06,
+        "ParagraphBorderTopLeftCornerOption",
+        Kind::Enum(&[(0, "None")]),
+        false,
+    ),
+    (
+        0x1DF07,
+        "ParagraphBorderTopRightCornerOption",
+        Kind::Enum(&[(0, "None")]),
+        false,
+    ),
+    (
+        0x1DF08,
+        "ParagraphBorderBottomLeftCornerOption",
+        Kind::Enum(&[(0, "None")]),
+        false,
+    ),
+    (
+        0x1DF09,
+        "ParagraphBorderBottomRightCornerOption",
+        Kind::Enum(&[(0, "None")]),
+        false,
+    ),
+    (0x1DF1E, "ParagraphBorderDisplayIfSplits", Kind::Bool, false),
+    (
+        0x50F15,
+        "Kashidas",
+        Kind::Enum(&[(0, "DefaultKashidas")]),
+        false,
+    ),
+    (0x50F2B, "ParagraphKashidaWidth", Kind::Number, false),
+    (0x50F2F, "XOffsetDiacritic", Kind::Number, false),
+    (0x50F30, "YOffsetDiacritic", Kind::Number, false),
+    (0x50F3C, "OTFOverlapSwash", Kind::Bool, false),
+    (0x50F3D, "OTFStylisticAlternate", Kind::Bool, false),
+    (0x50F3E, "OTFJustificationAlternate", Kind::Bool, false),
+    (0x50F3F, "OTFStretchedAlternate", Kind::Bool, false),
+    (
+        0x50F40,
+        "KeyboardDirection",
+        Kind::Enum(&[(0, "DefaultDirection")]),
+        false,
+    ),
 ];
 
 /// Paragraph shading corner option codes.
@@ -2112,6 +2273,38 @@ mod tests {
         let names: Vec<&str> = props.iter().map(|p| p.0).collect();
         assert_eq!(names, ["RubyFontStyle"]);
         assert!(matches!(&props[0].2, PropValue::Text(t) if t == "Nothing"));
+    }
+
+    #[test]
+    fn writes_attributes_placed_by_order() {
+        // A style list: u32 ID, u16 size, then u16 value count, u32 type,
+        // u16 length and the value.
+        let mut d = 4u16.to_le_bytes().to_vec();
+        for (id, ty, value) in [
+            (0x4241u32, 0x1BB1u32, (-1f64).to_le_bytes().to_vec()),
+            (0x4242, 0x1BBB, 0xFFFFu16.to_le_bytes().to_vec()),
+            (0x1B49, 0x1B22, [0u8; 16].to_vec()),
+            (0x1B7B, 0x1B05, 0u32.to_le_bytes().to_vec()),
+        ] {
+            d.extend(id.to_le_bytes());
+            d.extend((8 + value.len() as u16).to_le_bytes());
+            d.extend(1u16.to_le_bytes());
+            d.extend(ty.to_le_bytes());
+            d.extend((value.len() as u16).to_le_bytes());
+            d.extend(value);
+        }
+        let mut c = crate::object::Encoding::default().cursor(&d);
+        let n = c.u16().unwrap() as usize;
+        let a = Attrs::parse_text(&mut c, n, crate::audit::List::Style, None).unwrap();
+        let doc = Document::default();
+        let w = Writer::for_test(&doc);
+        let (plain, props) = w.text_attrs(&a);
+        assert!(plain.contains(&("RubyTint", "-1".into())));
+        assert!(plain.contains(&("RubyOverprintFill", "Auto".into())));
+        assert!(plain.contains(&("GradientStrokeStart", "0 0".into())));
+        assert_eq!(props.len(), 1);
+        assert_eq!((props[0].0, props[0].1), ("RuleBelowGapColor", "string"));
+        assert!(matches!(&props[0].2, PropValue::Text(t) if t == "Text Color"));
     }
 
     #[test]

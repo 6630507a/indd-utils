@@ -1197,12 +1197,179 @@ the root style stores 0x427E = 2. So neither 0x428E nor 0x428F is the
 number of rows. 0x427E is `WarichuLines`: value type 0x1B10 is used
 only by 0x427E, 0x428E and 0x428F, and 0x427E is the remaining one.
 
-**Not mapped.** The 24 default ranges also hold IDs for the ruby and
-kenten fonts, colours, tints, overprint, weights, Y scales and offsets,
-kenten placement and characters, and two warichu IDs (0x428E, 0x428F;
-2 and 2 in every IDML range, so their order is not known). Each holds
-the default value in every pair, and several IDs hold the same value, so
-none of them can be told apart. The converter does not write them.
+**Other IDs of the block.** The 24 default ranges also hold IDs for the
+ruby and kenten fonts, colours, tints, overprint, weights, Y scales and
+offsets, kenten placement and characters, and two warichu IDs (0x428E,
+0x428F; 2 and 2 in every IDML range). Each holds the default value in
+every pair, and several IDs hold the same value, so their values cannot
+tell them apart. Their order in IDML places them (attributes placed by
+order, below).
+
+### Attributes placed by order
+
+IDML writes a style's text attributes in ascending order of their
+attribute ID: the XML attributes in that order, and the `Properties`
+children in that order among themselves. The style's own attributes
+(`Self`, `Name`, `Imported`, `NextStyle`, `KeyboardShortcut` and the
+like) are not part of this order. Evidence: the 11,983 paragraph and
+character styles of the trustworthy pairs that match an INDD style by
+kind and name (2,504 root styles, 6,671 other paragraph styles and
+2,808 other character styles). Every one of their 0x23F lists is in
+ascending ID order, and the IDs of the other tables in this section
+appear in IDML in the same order:
+
+| Sequence | Adjacent pairs of IDs | Out of order |
+|---|---:|---:|
+| XML attributes | 270,429 | 0 |
+| `Properties` children | 44,683 | 0 |
+| XML attributes, with the table below | 358,891 | 0 |
+| `Properties` children, with the table below | 52,244 | 0 |
+
+The IDs below were placed by this order. For each IDML attribute that
+no known ID explains, the candidates are the stored IDs without a
+mapping that lie between the nearest known IDs before and after it.
+Intersected over every trustworthy style that has the attribute, and
+assigned in order within each gap, this gives one assignment in every
+gap but four. The payload type has to fit: a `true` or `false` value
+needs a 2-byte value of type 0x1B03, 0x1B04, 0x1B09 or 0x1B1F, a number
+an f64 equal to the IDML value (or to it divided by 100 for a
+percentage), and a colour or font in `Properties` a UID (type 0x1B05).
+In the four gaps the type decides:
+
+- 0x1B79–0x1B7D, five IDs for four attributes: 0x1B7A has type 0x1B0D
+  (0 in 1,252 of 1,252 roots), not a boolean type, so
+  `RuleAboveGapOverprint` is 0x1B79. 0x1B7B is the only UID:
+  `RuleBelowGapColor`.
+- 0x1BFB, 0x1BFC and 0x1BFE for `ParagraphBorderGapTint` (`-1`) and
+  `ParagraphBorderGapOverprint` (`false`): 0x1BFE is an f64 of 1.0 in
+  919 of the 919 roots that store it, which fits neither.
+- the ruby IDs 0x4237–0x4246, ten IDs for eight XML attributes and two
+  `Properties` children: 0x4240 and 0x4243 are the only UIDs.
+- the kenten, tatechuyoko, warichu and OpenType IDs 0x424D–0x42B3, 23
+  IDs for 22 XML attributes and one `Properties` child: 0x425A is the
+  only UID.
+
+The table counts the trustworthy pairs: styles (the root paragraph
+style and others) and character or paragraph ranges whose stored value
+the converter writes equal to the reference IDML's, and those it writes
+with another value or where the IDML has none (Differ). Every value of
+these attributes that the IDML has on a matched style or range is
+written, except `KeyboardDirection` on ranges (below). Encodings: bool =
+u16, 0 `false`, 1 `true`; pct = f64 fraction, written ×100; colour =
+swatch UID, 0 `Text Color`; code = u16 or u32, by the listed codes. The
+second part of the encoding column is the value type.
+
+"Order only" marks an ID whose value is the same in every trustworthy
+item, so only the order and the payload type place it. The four
+OpenType alternates vary, but always together, so the order alone
+separates them too.
+
+| ID | IDML | Encoding, type | Equal: root styles | other styles | ranges | Differ | Values seen | Placed by |
+|---|---|---|---:|---:|---:|---:|---|---|
+| 0x1B41 | `StrokeTint` | f64, 0x1BB1 | 1,252 | 9 | 23 | 0 | `-1` (1,282), `100` (2) | order, values |
+| 0x1B43 | `OverprintStroke` | bool, 0x1B04 | 1,252 | 12 | 23 | 0 | `false` (1,287) | order only |
+| 0x1B45 | `GradientStrokeAngle` | f64, 0x1B2C | 1,252 | 7 | 23 | 0 | `0` (1,282) | order only |
+| 0x1B47 | `GradientStrokeLength` | f64, 0x1B13 | 1,252 | 7 | 23 | 0 | `-1` (1,282) | order only |
+| 0x1B49 | `GradientStrokeStart` | two f64, 0x1B22 | 1,252 | 7 | 23 | 0 | `0 0` (1,282) | order only |
+| 0x1B5A | `RuleAboveOverprint` | bool, 0x1B04 | 1,252 | – | – | 0 | `false` (1,252) | order only |
+| 0x1B5B | `RuleBelowOverprint` | bool, 0x1B04 | 1,252 | – | – | 0 | `false` (1,252) | order only |
+| 0x1B6C | `OTFOrdinal` | bool, 0x1B04 | 1,252 | 8 | 23 | 0 | `false` (1,283) | order only |
+| 0x1B6D | `OTFFraction` | bool, 0x1B04 | 1,252 | 8 | 56 | 0 | `false` (1,283), `true` (33) | order, values |
+| 0x1B79 | `RuleAboveGapOverprint` | bool, 0x1B04 | 1,252 | – | – | 0 | `false` (1,252) | order only |
+| 0x1B7B | `RuleBelowGapColor` (Properties) | colour, 0x1B05 | 1,252 | 10 | 357 | 0 | `Swatch/None` (1,252), `Text Color` (367) | order, values |
+| 0x1B7C | `RuleBelowGapTint` | f64, 0x1BB1 | 1,252 | – | – | 0 | `-1` (1,252) | order only |
+| 0x1B7D | `RuleBelowGapOverprint` | bool, 0x1B04 | 1,252 | – | – | 0 | `false` (1,252) | order only |
+| 0x1B82 | `OTFMark` | bool, 0x1B03 | 1,252 | – | 23 | 0 | `true` (1,275) | order only |
+| 0x1B84 | `OTFLocale` | bool, 0x1B03 | 1,252 | – | 23 | 0 | `true` (1,275) | order only |
+| 0x1B88 | `OTFSlashedZero` | bool, 0x1B04 | 1,252 | 7 | 32 | 0 | `false` (1,282), `true` (9) | order, values |
+| 0x1B8A | `OTFHistorical` | bool, 0x1B04 | 1,252 | 7 | 23 | 0 | `false` (1,282) | order only |
+| 0x1B90 | `UnderlineGapTint` | f64, 0x1BB1 | 1,252 | 7 | 23 | 0 | `-1` (1,282) | order only |
+| 0x1B97 | `StrikeThroughGapColor` (Properties) | colour, 0x1B05 | 1,252 | 17 | 729 | 0 | `Swatch/None` (1,282), `Text Color` (716) | order, values |
+| 0x1B98 | `StrikeThroughGapOverprint` | bool, 0x1B04 | 1,252 | 7 | 23 | 0 | `false` (1,282) | order only |
+| 0x1B99 | `StrikeThroughGapTint` | f64, 0x1BB1 | 1,252 | 7 | 23 | 0 | `-1` (1,282) | order only |
+| 0x1B9B | `StrikeThroughOverprint` | bool, 0x1B04 | 1,252 | 7 | 23 | 0 | `false` (1,282) | order only |
+| 0x1BC0 | `SplitColumnOutsideGutter` | f64, 0x1BA8 | 1,252 | – | – | 0 | `0` (1,252) | order only |
+| 0x1BC3 | `SpanColumnMinSpaceBefore` | f64, 0x1BA8 | 1,252 | – | – | 0 | `0` (1,252) | order only |
+| 0x1BD8 | `ParagraphShadingSuppressPrinting` | bool, 0x1B04 | 1,033 | – | – | 0 | `false` (1,033) | order only |
+| 0x1BF8 | `ParagraphBorderOverprint` | bool, 0x1B04 | 919 | – | – | 0 | `false` (919) | order only |
+| 0x1BFB | `ParagraphBorderGapTint` | f64, 0x1BB1 | 919 | – | – | 0 | `-1` (919) | order only |
+| 0x1BFC | `ParagraphBorderGapOverprint` | bool, 0x1B04 | 919 | – | – | 0 | `false` (919) | order only |
+| 0x4237 | `RubyYScale` | pct, 0x1B16 | 1,252 | 7 | 23 | 0 | `100` (1,282) | order only |
+| 0x4238 | `RubyXOffset` | f64, 0x1B14 | 1,252 | 7 | 23 | 0 | `0` (1,282) | order only |
+| 0x423D | `RubyOverhang` | bool, 0x1B04 | 1,252 | 7 | 23 | 0 | `false` (1,282) | order only |
+| 0x4240 | `RubyFill` (Properties) | colour, 0x1B05 | 1,252 | 7 | 23 | 0 | `Text Color` (1,282) | order only |
+| 0x4241 | `RubyTint` | f64, 0x1BB1 | 1,252 | 7 | 23 | 0 | `-1` (1,282) | order only |
+| 0x4242 | `RubyOverprintFill` | u16 code 0xFFFF `Auto`; 0x1BBB | 1,252 | – | 23 | 0 | `Auto` (1,275) | order only |
+| 0x4243 | `RubyStroke` (Properties) | colour, 0x1B05 | 1,252 | 7 | 23 | 0 | `Text Color` (1,282) | order only |
+| 0x4244 | `RubyStrokeTint` | f64, 0x1BB1 | 1,252 | 7 | 23 | 0 | `-1` (1,282) | order only |
+| 0x4245 | `RubyOverprintStroke` | u16 code 0xFFFF `Auto`; 0x1BBB | 1,252 | – | 23 | 0 | `Auto` (1,275) | order only |
+| 0x4246 | `RubyWeight` | f64, 0x1BB6 | 1,252 | 7 | 23 | 0 | `-1` (1,282) | order only |
+| 0x424A | `KentenFont` (Properties) | font family UID, 0 `$ID/`; 0x1B05 | 1,252 | 1 | 23 | 0 | `$ID/` (1,275), a composite font (1) | order, values |
+| 0x424D | `KentenYScale` | pct, 0x1B16 | 1,252 | 7 | 23 | 0 | `100` (1,282) | order only |
+| 0x424F | `KentenPlacement` | f64, 0x1B14 | 1,252 | 10 | 23 | 0 | `0` (1,285) | order only |
+| 0x4250 | `KentenAlignment` | u16 code 1 `AlignKentenCenter`; 0x4238 | 1,252 | 10 | 23 | 0 | `AlignKentenCenter` (1,285) | order only |
+| 0x4251 | `KentenPosition` | u16 code 0 `AboveRight`; 0x1B04 | 1,252 | 10 | 23 | 0 | `AboveRight` (1,285) | order only |
+| 0x4252 | `KentenCustomCharacter` | u16 code 0 empty; 0x1B0D | 1,252 | 7 | 23 | 0 | empty (1,282) | order only |
+| 0x4253 | `KentenCharacterSet` | u16 code 0 `CharacterInput`; 0x1B0D | 1,252 | 7 | 23 | 0 | `CharacterInput` (1,282) | order only |
+| 0x4258 | `KentenTint` | f64, 0x1BB1 | 1,252 | 7 | 23 | 0 | `-1` (1,282) | order only |
+| 0x4259 | `KentenOverprintFill` | u16 code 0xFFFF `Auto`; 0x1BBB | 1,252 | – | 23 | 0 | `Auto` (1,275) | order only |
+| 0x425A | `KentenStrokeColor` (Properties) | colour, 0x1B05 | 1,252 | 7 | 23 | 0 | `Text Color` (1,282) | order only |
+| 0x425B | `KentenStrokeTint` | f64, 0x1BB1 | 1,252 | 7 | 23 | 0 | `-1` (1,282) | order only |
+| 0x425C | `KentenOverprintStroke` | u16 code 0xFFFF `Auto`; 0x1BBB | 1,252 | – | 23 | 0 | `Auto` (1,275) | order only |
+| 0x425D | `KentenWeight` | f64, 0x1BB6 | 1,252 | 7 | 23 | 0 | `-1` (1,282) | order only |
+| 0x425F | `TatechuyokoXOffset` | f64, 0x1B14 | 1,252 | 7 | 23 | 0 | `0` (1,282) | order only |
+| 0x4260 | `TatechuyokoYOffset` | f64, 0x1B14 | 1,252 | 7 | 23 | 0 | `0` (1,282) | order only |
+| 0x4262 | `AutoTcyIncludeRoman` | bool, 0x1B04 | 1,252 | – | – | 0 | `false` (1,252) | order only |
+| 0x4263 | `Jidori` | u16, 0x1B0D | 1,252 | 7 | 23 | 0 | `0` (1,282) | order only |
+| 0x4267 | `CharacterRotation` | f64, 0x1B14 | 1,252 | 7 | 25 | 0 | `0` (1,282), `3` (2) | order, values |
+| 0x4278 | `ShataiMagnification` | f64, 0x42A4 | 1,252 | 7 | 23 | 0 | `0` (1,282) | order only |
+| 0x428E | `WarichuCharsBeforeBreak` | u16, 0x1B10 | 1,252 | 7 | 23 | 0 | `2` (1,282) | order only |
+| 0x428F | `WarichuCharsAfterBreak` | u16, 0x1B10 | 1,252 | 7 | 23 | 0 | `2` (1,282) | order only |
+| 0x4294 | `OTFHVKana` | bool, 0x1B04 | 1,252 | 8 | 23 | 0 | `false` (1,283) | order only |
+| 0x4296 | `OTFRomanItalics` | bool, 0x1B04 | 1,252 | 8 | 23 | 0 | `false` (1,283) | order only |
+| 0x42A4 | `ParagraphGyoudori` | bool, 0x1B04 | 1,252 | 12 | 1 | 0 | `false` (1,252), `true` (13) | order, values |
+| 0x42B3 | `RubyAutoTcyAutoScale` | bool, 0x1B03 | 1,252 | 7 | 23 | 0 | `true` (1,282) | order only |
+| 0x1A407 | `NumberingStartAt` | u32, 0x1B00 | 1,252 | – | 7 | 0 | `1` (1,252), `2` (5), `3` (2) | order, values |
+| 0x1DF05 | `ParagraphBorderStrokeEndJoin` | u32 code 0 `MiterEndJoin`; 0x1DF3B | 919 | – | – | 0 | `MiterEndJoin` (919) | order only |
+| 0x1DF06 | `ParagraphBorderTopLeftCornerOption` | u32 code 0 `None`; 0x1DF51 | 919 | – | – | 0 | `None` (919) | order only |
+| 0x1DF07 | `ParagraphBorderTopRightCornerOption` | u32 code 0 `None`; 0x1DF51 | 919 | – | – | 0 | `None` (919) | order only |
+| 0x1DF08 | `ParagraphBorderBottomLeftCornerOption` | u32 code 0 `None`; 0x1DF51 | 919 | – | – | 0 | `None` (919) | order only |
+| 0x1DF09 | `ParagraphBorderBottomRightCornerOption` | u32 code 0 `None`; 0x1DF51 | 919 | – | – | 0 | `None` (919) | order only |
+| 0x1DF1E | `ParagraphBorderDisplayIfSplits` | bool, 0x1B04 | 919 | – | – | 0 | `false` (919) | order only |
+| 0x50F15 | `Kashidas` | u32 code 0 `DefaultKashidas`; 0x50F1B | 1,252 | – | 23 | 0 | `DefaultKashidas` (1,275) | order only |
+| 0x50F2B | `ParagraphKashidaWidth` | f64, 0x1DF21 | 1,243 | – | – | 0 | `2` (1,243) | order only |
+| 0x50F2F | `XOffsetDiacritic` | f64, 0x1B14 | 1,252 | – | – | 0 | `0` (1,252) | order only |
+| 0x50F30 | `YOffsetDiacritic` | f64, 0x1B14 | 1,252 | – | – | 0 | `0` (1,252) | order only |
+| 0x50F3C | `OTFOverlapSwash` | bool, 0x1B04 | 1,252 | – | 25 | 0 | `false` (1,275), `true` (2) | order only (the four vary together) |
+| 0x50F3D | `OTFStylisticAlternate` | bool, 0x1B04 | 1,252 | – | 25 | 0 | `false` (1,275), `true` (2) | order only (the four vary together) |
+| 0x50F3E | `OTFJustificationAlternate` | bool, 0x1B04 | 1,252 | – | 25 | 0 | `false` (1,275), `true` (2) | order only (the four vary together) |
+| 0x50F3F | `OTFStretchedAlternate` | bool, 0x1B04 | 1,252 | – | 25 | 0 | `false` (1,275), `true` (2) | order only (the four vary together) |
+| 0x50F40 | `KeyboardDirection` | u32 code 0 `DefaultDirection`; 0x50F2E | 1,252 | – | – | 0 | `DefaultDirection` (1,252) | order only |
+
+Notes:
+
+- Tints, weights and lengths are written as stored (`-1`, and `100` for
+  the 2 `StrokeTint` values that store 100), not by the page item tint
+  rule.
+- `KentenPosition` has a boolean value type but an enumeration value
+  (0 = `AboveRight`).
+- The enumerations list only the codes seen, one per attribute in the
+  trustworthy pairs. Other codes are left out and reported by `indd
+  audit`.
+- `KeyboardDirection` has the value type of `CharacterDirection`
+  (0x50F2E). 34 character ranges of one trustworthy pair store code 1;
+  the converter does not write it.
+
+**Stored but never written.** The root paragraph styles also store IDs
+that no IDML attribute matches: after this table, every text attribute
+of the trustworthy IDML styles is explained by a stored ID except
+`Label` (6 styles) and `HyphenQuality` (7 styles). Such IDs, with the
+number of the 1,252 trustworthy roots that store each: 0x1B36, 0x1B3F,
+0x1B5F–0x1B63, 0x1B7A, 0x4228, 0x4230, 0x4249, 0x4269–0x426B, 0x4290,
+0x429F, 0x1300F, 0x13516, 0x13549 and 0x20714 (1,252 each), 0x1A405 and
+0x1A415 (1,228), 0x1BFE (919), and in later versions 0xBA429, 0xBA42A
+and eight IDs from 0x16923C to 0x16924A (24 each) and 18 IDs from
+0x5351D to 0x58820 (2 each). The converter does not write them.
 
 ### Root styles and text defaults
 
@@ -1259,7 +1426,9 @@ converter writes a pair only for these combinations of codes:
 
 Attributes whose value never varies in the corpus cannot be located this
 way. The converter writes the root styles' values for them from IDML
-observation (`idml-values.md`); styles and ranges inherit them. These include
+observation (`idml-values.md`); styles and ranges inherit them. Many
+others are placed by their order in IDML (attributes placed by order,
+above). The attributes left include
 `KeepFirstLines`, `KeepLastLines`, `KeepAllLinesTogether`,
 `KeepWithNext`, `KeepWithPrevious`, `Skew`, `StrikeThru`,
 `LastLineIndent`, `RuleAbove`, `RuleAboveColor`, the `RuleBelow` indents

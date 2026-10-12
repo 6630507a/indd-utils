@@ -2704,6 +2704,27 @@ IDML writes a `BasedOn` of the root `[No paragraph style]` or
 `[No character style]` as a string (`$ID/[No paragraph style]`), and any
 other base as an object reference.
 
+**Attribute list (chunk 0x23F).** The style's text attributes
+(`attributes.md`, text attribute lists). IDML writes on a style exactly
+the text attributes this list stores. It adds no value from the base
+style, and it writes a stored value also when it equals the base's.
+Evidence: the 11,983 paragraph and character styles of the trustworthy
+pairs that match an INDD style by kind and name. In every one, each
+stored ID with a known mapping is an attribute of the IDML style, and
+every IDML text attribute comes from a stored ID, except `Label` (6
+styles) and `HyphenQuality` (7 styles).
+
+Most lists are short. The root paragraph style stores the full list
+(287 to 362 IDs, more in later versions). Over all pairs, no other paragraph
+style stores more than 14 % of its root's list (the most is 41 of 289),
+and `NormalParagraphStyle` stores at most 21. The only other styles with
+a full list are 7 character styles, the same style object in 7 files of
+one document family (DOM 10.0 and 10.2): each stores 120 IDs, and IDML
+writes 126 or 128 attributes on them, almost all with the root values.
+Nothing else in these styles differs from the short-list styles: they
+have a base (the root character style), `Imported` is false, and their
+chunks are the same.
+
 **Keyboard shortcuts.** Ten bytes before the name's flag byte is a u32
 key; the two bytes 6 and 5 before the flag are modifier bytes *m0* and
 *m1*. Evidence: the 6,957 paragraph and character styles of all pairs

@@ -375,7 +375,7 @@ enum Layout {
 
 fn text_layout(id: u32) -> Option<Layout> {
     Some(match id {
-        0x1B4A => Layout::Point,
+        0x1B49 | 0x1B4A => Layout::Point,
         // Ruby and kenten font styles are strings too (attributes.md,
         // ruby, kenten and warichu).
         0x1B02 | 0x1A414 | 0x1A423 | 0x1A424 | 0x4234 | 0x424B => Layout::String,

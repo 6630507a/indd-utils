@@ -35,32 +35,31 @@ supplies is written from the INDD.
 
 The file is generated from the reference IDML of every pair that
 `tools/compare.py` compares (a little-endian INDD whose IDML has the
-same major version, without the privately held samples): 1,585 pairs,
-1,448 distinct IDML files, DOM 7 to 21. Values that
+same major version, without the privately held samples): 1,587 pairs,
+1,450 distinct IDML files, DOM 7 to 21. Values that
 first appear after DOM 7 are written only for documents of that
 InDesign version or later (`MinimumVersion` in the file).
 
 | Root style | Values | Same in | Written for version |
 |---|---|---|---|
-| `[No paragraph style]` | 72 | 1,448 of 1,448 files | all |
-| | 1 | 1,437 of 1,437 files with DOM 8 or later | 8 and later |
-| | 3 | 1,331 of 1,331 (DOM 10 or later) | 10 and later |
-| | 3 | 1,211 of 1,211 (DOM 11 or later) | 11 and later |
-| | 14 | 1,039 of 1,039 (DOM 13 or later) | 13 and later |
-| | 1 | 640 of 640 (DOM 15 or later) | 15 and later |
-| | 1 | 61 of 61 (DOM 21) | 21 |
-| `[No character style]` | 1 | 1,448 of 1,448 | all |
-| | 2 | 1,211 of 1,211 (DOM 11 or later) | 11 and later |
-| | 1 | 1,039 of 1,039 (DOM 13 or later) | 13 and later |
-| | 1 | 640 of 640 (DOM 15 or later) | 15 and later |
-| | 1 | 61 of 61 (DOM 21) | 21 |
-| Object style `[None]` | 63 | 1,448 of 1,448 | all |
+| `[No paragraph style]` | 2 | 1,450 of 1,450 files | all |
+| | 3 | 1,333 of 1,333 files with DOM 10 or later | 10 and later |
+| | 2 | 1,213 of 1,213 (DOM 11 or later) | 11 and later |
+| | 5 | 1,041 of 1,041 (DOM 13 or later) | 13 and later |
+| | 1 | 641 of 641 (DOM 15 or later) | 15 and later |
+| | 1 | 62 of 62 (DOM 21) | 21 |
+| `[No character style]` | 1 | 1,450 of 1,450 | all |
+| | 2 | 1,213 of 1,213 (DOM 11 or later) | 11 and later |
+| | 1 | 1,041 of 1,041 (DOM 13 or later) | 13 and later |
+| | 1 | 641 of 641 (DOM 15 or later) | 15 and later |
+| | 1 | 62 of 62 (DOM 21) | 21 |
+| Object style `[None]` | 63 | 1,450 of 1,450 | all |
 | | 9, 22, 1, 4, 7, 4, 4, 8 | all files with DOM 8, 9, 10, 11, 12, 13, 14, 15 or later | from that version |
-| | 9 | 61 of 61 (DOM 21) | 21 |
-| Cell style `[None]` | 1 | 1,448 of 1,448 | all |
-| Table style `[No table style]` | 89 | 1,448 of 1,448 | all |
+| | 9 | 62 of 62 (DOM 21) | 21 |
+| Cell style `[None]` | 1 | 1,450 of 1,450 | all |
+| Table style `[No table style]` | 89 | 1,450 of 1,450 | all |
 | | 6 | 1,211 of 1,211 (DOM 11 or later) | 11 and later |
-| | 4 | 254 of 254 (DOM 18 or later) | 18 and later |
+| | 4 | 255 of 255 (DOM 18 or later) | 18 and later |
 
 **Left out because they vary between files:**
 
@@ -92,7 +91,7 @@ pair rule leaves them out: an IDML (DOM 7) beside an INDD of version
 17.2 that has no root styles at all, and a big-endian pair of version 11.2 whose table style lacks
 four region cell style values that every other file has.
 
-**Left out because the converter reads them from the INDD:** 217
+**Left out because the converter reads them from the INDD:** 298
 attributes of `[No paragraph style]`, listed in `attributes.md`. Some
 of these are also the same in every IDML; the INDD value is written.
 
@@ -249,7 +248,7 @@ settings.
 ## Object styles other than the root
 
 `tools/root_values.py` also collects the object styles other than
-`[None]`: 4,955 styles in the 1,448 distinct IDML files, every file having
+`[None]`: 4,961 styles in the 1,450 distinct IDML files, every file having
 at least one. A value is kept when every such style of every IDML from some
 DOM version on has it, with the same value, and at least 10 files show
 it. The kept values are in `src/idml/object_style_values.xml`. The
@@ -259,10 +258,10 @@ settings) in their place.
 
 | Values | Same in | Written for version |
 |---|---|---|
-| 49 | 1,448 of 1,448 files | all |
+| 49 | 1,450 of 1,450 files | all |
 | 2, 22, 1, 5, 5, 4, 6, 11 | all files with DOM 8, 9, 10, 11, 12, 13, 14, 15 or later | from that version |
-| 5, 3, 8 | 254, 157 and 93 files with DOM 18, 19, 20 or later | from that version |
-| 41 | 61 of 61 files with DOM 21 | 21 |
+| 5, 3, 8 | 255, 158 and 94 files with DOM 18, 19, 20 or later | from that version |
+| 41 | 62 of 62 files with DOM 21 | 21 |
 
 Among them are the nine `Enable…` effect flags other than
 `EnableTransparency` in the four `ObjectStyle…EffectsCategorySettings`
@@ -669,10 +668,10 @@ those elements in the order the IDML files list them.
 
 | Values | Same in | Written for version |
 |---|---|---|
-| 697 | 1,448 of 1,448 files | all |
+| 697 | 1,450 of 1,450 files | all |
 | 73, 2, 14, 1, 1, 21, 4, 10 | all files with DOM 8, 9, 10, 11, 12, 13, 14, 15 or later | from that version |
-| 2 | 254 of 254 files with DOM 18 or later | 18 and later |
-| 19 | 93 of 93 files with DOM 20 or later | 20 and later |
+| 2 | 255 of 255 files with DOM 18 or later | 18 and later |
+| 19 | 94 of 94 files with DOM 20 or later | 20 and later |
 
 For example `TextDefault` keeps 140 of its 318 values,
 `TransparencyDefaultContainerObject` all 352 and `TextFramePreference`
