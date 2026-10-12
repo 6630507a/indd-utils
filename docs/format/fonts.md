@@ -210,9 +210,26 @@ u32 count *n*, then *n* entries: u8 1 if the string is a built-in key
   it: the first byte of the font record is 1 for 2,042 `Installed` and
   1,047 `Substituted` fonts. The attribute is optional in the schema and
   left out.
-- `NumDesignAxes`, `DesignAxesName` and `DesignAxesValues` (131 fonts of
-  variable font families) are not in the records above, and were not
-  found elsewhere.
+- **Variable fonts.** `NumDesignAxes`, `DesignAxesName`,
+  `DesignAxesValues` and `Properties/DesignAxesRange` (757 fonts in 27
+  trustworthy pairs) come from the font files on the exporting computer
+  and are not stored:
+  - The family record has no axis data: the 39 family records with axis
+    fonts parse to their last byte with the layout above.
+  - Raw searches of the 27 INDD files find none of the axis names as
+    text (single-byte, UTF-16LE or UTF-16BE), apart from `Width` and
+    `Italic` inside style names. Neither the range list of any family
+    nor its minimum and maximum occur as i16, i32, f32, f64 or 16.16
+    fixed in either byte order.
+  - One family record, the same in two documents but for the record kind
+    and the last u16 of the 6 unidentified bytes, gives axes on all 18
+    fonts in one IDML (`Installed`) and on none in four others
+    (`Substituted`). No `Substituted` font has axes (0 of 97).
+  - The axis name is the exporting InDesign's localized name: the same
+    family record gives `두께` in one IDML and `Weight` in another.
+
+  `compare.py` leaves these values out (`docs/measurement.md`, values
+  left out).
 
 ## Composite fonts
 

@@ -528,9 +528,16 @@ def props(el):
     return a
 
 
+# Gap keys for values that could not be compared one by one.
+NO_ELEMENT = "(element not produced)"
+NO_TEXT = "(story text differs)"
+NOT_IN_REFERENCE = "(element not in reference)"
+ELEMENT = "(element)"
+
+
 # Values left out of value coverage because they cannot be derived from an
-# INDD file: (tag pattern, attribute or P.<Properties child>, reason), tag
-# patterns as in fnmatch. docs/measurement.md explains each entry.
+# INDD file: (tag pattern, attribute or P.<Properties child> pattern,
+# reason), patterns as in fnmatch. docs/measurement.md explains each entry.
 EXCLUDED = [
     ("Font", "Status", "whether the font is installed on the exporting computer"),
     ("Document/{http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging}*", "src",
@@ -543,6 +550,20 @@ EXCLUDED = [
     ("Link", "LinkImportModificationTime",
      "local time of the exporting computer; the INDD stores UTC"),
     ("*", "BitmapPrinting", "evaluated by the exporting computer; not stored in the INDD"),
+] + [
+    ("Font", k, "axes of the font file on the exporting computer; not stored in the INDD")
+    for k in ("NumDesignAxes", "DesignAxesName", "DesignAxesValues", "P.DesignAxesRange")
+] + [
+    ("*", k, "written by a plugin of the exporting InDesign; not in the IDML schema")
+    for k in ("Observers", "Subjects", "DisplayErrorDialogs", "EventFilter", "JavaScript",
+              "SubjectScriptTagFilter", "UseDebugger", "CompactedDataStore", "ComponentId")
+] + [
+    ("Story", "P.DocsFlowImportSettings",
+     "written by a plugin of the exporting InDesign; not in the IDML schema"),
+    ("Story", "P.WordsFlow*", "written by a plugin of the exporting InDesign; not in the IDML schema"),
+    # ELEMENT leaves out the whole element, with all its values.
+    ("Document/WordsFlowPreference", ELEMENT,
+     "written by a plugin of the exporting InDesign; not in the IDML schema"),
 ]
 
 # Attributes of a Link that describe the linked file as InDesign found it
@@ -582,7 +603,8 @@ def font_self(el, s):
 
 @functools.cache
 def excluded(tag, key):
-    return any(k == key and fnmatch.fnmatchcase(tag, t) for t, k, _ in EXCLUDED)
+    return any(fnmatch.fnmatchcase(key, k) and fnmatch.fnmatchcase(tag, t)
+               for t, k, _ in EXCLUDED)
 
 
 def tree(el):
@@ -604,13 +626,6 @@ def values(tag, el):
             if c.get("type") != "list" and len(c):
                 a["P." + c.tag] = tree(c)
     return {k: v for k, v in a.items() if k != "Self" and not excluded(tag, k)}
-
-
-# Gap keys for values that could not be compared one by one.
-NO_ELEMENT = "(element not produced)"
-NO_TEXT = "(story text differs)"
-NOT_IN_REFERENCE = "(element not in reference)"
-ELEMENT = "(element)"
 
 
 class Stats:
@@ -780,6 +795,8 @@ def value_coverage(p, ref, ours):
             extra[(tag, k)] += 1
 
     for (tag, s), el in ref_el.items():
+        if excluded(tag, ELEMENT):
+            continue
         theirs = values(tag, el)
         mine = our_el.get((tag, s))
         if mine is None:
@@ -795,7 +812,7 @@ def value_coverage(p, ref, ours):
             p.relinked += 1
         compare(tag, theirs, mine)
     for (tag, s), el in our_el.items():
-        if (tag, s) not in ref_el:
+        if (tag, s) not in ref_el and not excluded(tag, ELEMENT):
             extra[(tag, NOT_IN_REFERENCE)] += 1 + len(values(tag, el))
     for sid, text in ref_st.items():
         key = ("Story", "(text)")
