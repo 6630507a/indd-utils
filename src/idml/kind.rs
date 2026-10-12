@@ -309,7 +309,12 @@ impl Writer<'_> {
             Kind::Language => v
                 .as_u32()
                 .and_then(|u| self.doc.languages.get(&u))
-                .map(|l| text("string", builtin_key(l))),
+                // `Neutral` is `[No Language]` without `$ID/` (attributes.md,
+                // languages).
+                .map(|l| match l.as_str() {
+                    "Neutral" => text("string", "[No Language]".into()),
+                    l => text("string", builtin_key(l)),
+                }),
             Kind::CharacterStyle => v
                 .as_u32()
                 .map(|u| text("object", self.style_ref(Some(u).filter(|&u| u != 0), false))),

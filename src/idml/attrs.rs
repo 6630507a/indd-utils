@@ -2051,6 +2051,17 @@ mod tests {
     }
 
     #[test]
+    fn names_the_neutral_language_without_id_prefix() {
+        let mut doc = Document::default();
+        doc.languages.insert(3, "Neutral".into());
+        doc.languages.insert(4, "English: USA".into());
+        let w = Writer::for_test(&doc);
+        let lang = |u| w.value_text(Kind::Language, &Value::Ref(u));
+        assert_eq!(lang(3).as_deref(), Some("[No Language]"));
+        assert_eq!(lang(4).as_deref(), Some("$ID/English: USA"));
+    }
+
+    #[test]
     fn writes_ruby_and_warichu_attributes() {
         let doc = Document::default();
         let w = Writer::for_test(&doc);

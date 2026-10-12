@@ -588,6 +588,16 @@ in-object string (`English: USA`), followed by other strings. IDML writes
 included) and 4 ranges with the attribute match, with 5 different
 languages.
 
+The language named `Neutral` is the one exception: IDML writes it as
+`[No Language]`, without `$ID/`, although its `Language` element is
+named `$ID/[No Language]` (`objects.md`, languages). Over the 1,252
+trustworthy pairs of the corpus of 2026-10, `AppliedLanguage` has a
+value without `$ID/` 514 times in 43 documents, always `[No Language]`;
+no IDML writes `$ID/Neutral` or `$ID/[No Language]` there. Each of the
+490 values matched with an INDD object (31 text defaults, 54 paragraph
+styles, 4 character styles, 401 ranges) names a language object called
+`Neutral`.
+
 **Tab stops (0x1B29).** u16 count, then for each stop: f64 position, u16
 alignment (0 `LeftAlign`, 1 `CenterAlign`, 2 `RightAlign`, 3
 `CharacterAlign`), for code 3 the alignment character as one UTF-16
