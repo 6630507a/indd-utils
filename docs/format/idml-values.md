@@ -212,11 +212,12 @@ writes all of these.
 
 These `Link` values are the same in all 4,699 links of the trustworthy
 pairs, and the converter writes them on every link: `AssetURL="$ID/"`,
-`AssetID="$ID/"`, `LinkClassID="35906"` (0x8C42, the class of links),
-`LinkClientID="257"` (the u32 at offset 4 of chunk 0x8C9B is 0x101 in
+`AssetID="$ID/"`, `LinkClientID="257"` (the u32 at offset 4 of chunk 0x8C9B is 0x101 in
 every link), `LinkObjectModified="false"`, `CanEmbed="true"`,
 `CanUnembed="true"`, `CanPackage="true"`, `ImportPolicy="NoAutoImport"`
-and `ExportPolicy="NoAutoExport"`. `RenditionData="Actual"` is on every
+and `ExportPolicy="NoAutoExport"`. `LinkClassID` is the class of the
+link object (`35906` for graphic links, `objects.md`, placed graphics).
+`RenditionData="Actual"` is on every
 link from DOM 13 on (3,043 of 3,043) and on none before (1,656 of
 1,656); the converter writes it from version 13.
 
@@ -788,3 +789,8 @@ Defaults of other elements are documented with their objects:
 - Timing lists, motion presets and animation settings: `objects.md`,
   [values without a stored
   field](objects.md#values-without-a-stored-field).
+- Linked story options (three attributes, 30 of 30 stories), Word import
+  options (8 items, 39 of 39 stories) and Excel import options (6 items,
+  9 of 9 stories): `objects.md`, [story links and placed
+  text](objects.md#story-links-and-placed-text). No reference has
+  another value.

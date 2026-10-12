@@ -64,6 +64,11 @@ Status values:
 | Order of stories outside the story list | `StoryList` | 2 pairs | open: not explained | IDML lists them in another order than text order | `objects.md`, stories |
 | Paragraph ranges split inside one record | `ParagraphStyleRange` | 17 | open: not explained | 20 stories have 41 range boundaries inside one paragraph-style record, with the same attributes on both sides: 36 at a paragraph end, 5 before a paragraph's U+000D. Examples: every paragraph of a table-of-contents story whose paragraphs hold a hyperlink source; a final empty paragraph. No stored value was found that marks these positions | `objects.md`, stories |
 | Character ranges split inside one record | `CharacterStyleRange` | 28 | open: not explained | 39 stories have character range boundaries inside one character-style record, with the same attributes on both sides | `objects.md`, stories |
+| Fields of three linked story options | `Story/LinkedStoryOption`, story chunk 0x21D12 bytes 0–5 | 6 | open: never varies | `UpdateWhileSaving="false"`, `WarnOnUpdateOfEditedStory="true"`, `RemoveForcedLineBreaks="false"` and bytes `00 00 01 00 00 00` in all 30 stories; written as these values | `objects.md`, linked story options |
+| Word import options without a field | `WordRTFImportPreferences`, chunk 0x12210 | 13 | open: never varies | items 3, 4, 7, 14 to 16, 18 and 19 have one value in all 39 stories and are written as that value; the order within the equal pairs (*s0*, *s1*), (*s14*, *s15*), (*s16*, *s17*) is not shown; code 1 of *s5*, *s11*, *s12* and the list length of version 13 have no sample | `objects.md`, import options of placed text |
+| Excel import options without a field | `ExcelImportPreferences`, chunk 0x12213 | 9 | open: never varies | items 0, 1, 2, 4, 5 and 9 have one value in all 9 stories and are written as that value | `objects.md`, import options of placed text |
+| Table and cell style mappings | chunk 0x21D30 lists 3 to 5 | 0 | open: no sample | empty in every sample, as is rule code 3; left out with a warning | `objects.md`, style mappings |
+| Links of linked page items | `TextFrame`/`Group` `Link` (class 0x21D32), `LinkedPageItemOption` | 1 | open: not examined | 3 links in one trustworthy document; not written | `objects.md`, story links |
 
 ## Page items
 

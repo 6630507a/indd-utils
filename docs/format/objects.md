@@ -1850,9 +1850,14 @@ of a frame (in its 0x15B list) and share these chunks:
 |---|---|
 | 0x151 | Matrix: `ItemTransform` (437/437 match) |
 | 0x1633 | Four f64: `GraphicBounds` left, top, right, bottom |
-| 0x8CBC | u32, u32, u32 link UID |
+| 0x8CBC | link list (story links and placed text, link lists): the link is the first UID, at offset 8 |
 
-**Links (0x8C42).** Chunk 0x8C9B:
+**Links (0x8C42).** Links of linked stories and linked page items
+have another class with the same chunks (story links and placed text).
+`LinkClassID` is the class of the link object in decimal: 2,386 of
+2,386 IDML links in the 158 little-endian documents whose UID is a link
+object in the INDD (19 more UIDs hold other objects, all in stale
+pairs). Chunk 0x8C9B:
 
 | Offset | Size | Contents | IDML `Link` |
 |---|---|---|---|
@@ -1860,7 +1865,7 @@ of a frame (in its 0x15B list) and share these chunks:
 | 4 | 4 | 0x101 in all links | (`LinkClientID="257"`) |
 | 8 | 4 | UID of the link resource (class 0x8C41) | |
 | 12 | 4 | 1 or 0 | `LinkResourceModified`: 1 `false`, 0 `true` |
-| 16 | 4 | UID of the graphic | |
+| 16 | 4 | UID of the graphic (or story) | |
 | 20 | 2 | 1 or 0 | `ShowInUI`: 1 `true`, 0 `false` |
 | 22 | 6 | three u16, 1 in all links | |
 | 28 | 4 | 0 in all links | |
@@ -1889,7 +1894,7 @@ After the URI, chunk 0x8C92 continues:
 |---|---|
 | 0 | u8 1, u8 1, u16 0 (all resources) |
 | 4 | u32 0 or 1, not identified |
-| 8 | u32 0, 2 or 3 |
+| 8 | u32 stored state: 0 `Normal`, 2 `Embedded`, 3 `Contained` (`StoredState`, below) |
 | 12 | u32 UID of a raw data object (class 0x129), or 0 |
 | 16 | stamp: u32 length, text segments (as in the link) |
 | then | modification time (FILETIME, as in the link) |
@@ -1958,12 +1963,20 @@ Evidence:
 - In the 245 distinct little-endian files there are 883 link resources.
   The field at offset 8 is 2 in 123 of them, and exactly those 123 name a
   raw data object at offset 12. The other 760 have 0 at offset 12 (742
-  with 0 at offset 8, 18 with 3; no pair shows what 3 means).
+  with 0 at offset 8, 18 with 3).
 - In the corpus pairs, all 10 resources of embedded links (12 links) name
   a raw data object, and none of the 369 resources of normal links do.
 - For all 12 embedded links, the raw data object's bytes equal the
   base64-decoded `Contents` of the IDML graphic (JPEG, PNG, PDF, EPS and
   SVG files, 2 KB to 11 MB).
+
+**Contained links.** The field at offset 8 is 3 on exactly the 50 links
+IDML marks `StoredState="Contained"`: 30 linked stories, 17 stories
+placed from Word and 3 linked page items. It is 0 on 2,237 `Normal`
+links and 2 on 99 `Embedded` links (the 158 little-endian documents
+whose IDML has a story link, a link source ID, style mappings or import
+options; 19 more `Normal` links have a UID that holds another object, in
+stale pairs).
 
 **Settings shared with page items.** Images, PDF, EPS and SVG graphics
 carry the page item setting chunks (page item settings, above): 0x2C10
@@ -2114,7 +2127,7 @@ and no `ContourOption` in its text wrap (29 of 29 frames).
 | 0x151 | matrix | `ItemTransform`; identity without the chunk | 29 of 29 (one sound has no chunk and `1 0 0 1 0 0`) |
 | 0x162B | path geometry, as page items | `Properties/PathGeometry` | 29 of 29 |
 | 0x1633 | four f64 | `Properties/GraphicBounds` (left, top, right, bottom) | 29 of 29 |
-| 0x8CBC | u32, u32, u32 link UID, as placed graphics | `Link` | 29 of 29 |
+| 0x8CBC | link list, as placed graphics | `Link` | 29 of 29 |
 | 0x15B | hierarchy: spread, parent frame, children (the poster) | | 29 of 29 |
 | 0x14004 | playback settings (below) | `Name`, `Description`, flags, `ControllerSkin` | 29 of 29 |
 | 0x1480C (movie), 0x14F03 (sound) | label at offset 0, as group labels (u16 0x7B7B, u32 count, flagged key and value strings) | `Properties/Label` | 2 movies with one pair match; 6 with count 0 and 21 without the chunk have no `Label` |
@@ -3297,6 +3310,228 @@ U+FEFF characters can be XML markers, which IDML does not write
 
 INDD stores a forced line break as U+000A; IDML writes it as U+2028. The
 last paragraph return of a story is not written to IDML.
+
+## Story links and placed text
+
+Stories placed from another story (linked stories), from a Word or
+Excel file, and the text frames that linked page items copy, carry the
+elements below. Evidence base: the 159 distinct corpus pairs whose IDML
+has any of them (158 little-endian), and for the presence rules all
+45,640 stories of the distinct little-endian pairs. No story has an
+element below without its stored data, and none has the data without
+the element.
+
+### Link lists (chunk 0x8CBC)
+
+Chunk 0x8CBC is a list of link UIDs: 4 bytes (`01 01 00 00`), u32
+count *n*, then *n* UIDs. It occurs on stories (0x201), spline items
+(0x6201), groups (0x401), graphics, link resources and more; the empty
+list (8 bytes) is the common case (28,569 spline items). Graphics and
+movies read the UID at offset 8, the first entry. No object in the
+corpus has more than one entry.
+
+### Story links
+
+A story with a non-empty 0x8CBC list has a `Link` child in IDML, and
+`Link Self` is `u` and the listed UID in hexadecimal: 47 of 47 stories
+whose UID is in both files; no story with a link lacks the IDML `Link`,
+and none the other way round, over the 45,640 stories.
+
+The link object has the layout of a graphic link (placed graphics,
+links), with the story's UID at offset 16 of chunk 0x8C9B (47 of 47),
+and its resource (class 0x8C41) the same chunk 0x8C92:
+
+| IDML | Equal |
+|---|---|
+| `LinkResourceURI` | 45 of 47 (2 links to another document, resolved to another path at export) |
+| `LinkResourceFormat` (`$ID/` and the format name) | 47 of 47: `Internal Linked Story` 28, `External Linked Story` 2, `Microsoft Office Word 2007 Import Filter` 17 |
+| `LinkImportStamp` | 47 of 47 (a plain number such as `1653409666` for linked stories, `file …` for Word files) |
+| `LinkResourceSize` | 47 of 47 (`0~0` for linked stories, the file size for Word files) |
+| `LinkResourceModified`, `ShowInUI` | 47 of 47 each |
+| `StoredState="Contained"` | 47 of 47 (resource field 3, placed graphics, link resources) |
+
+`RenditionData` and `PDFIdentifier` follow the rules of graphic links:
+present on the 17 version-14 Word links and the 49 version-21.0 links,
+absent on the 30 version-10 links.
+
+Link object classes (`LinkClassID` is the class in decimal):
+
+| Class | `LinkClassID` | Links | URI |
+|---|---|---|---|
+| 0x8C42 | `35906` | all graphic links; 17 stories placed from Word | `file:` |
+| 0x21D03 | `138499` | 30 linked stories | `idinternalcontent:<id>`, `idexternalcontent:<path>?<id>` |
+| 0x21D32 | `138546` | 3 linked page items (text frame, group) | `idinternalSharedArticle:`, `idexternalSharedArticle:` |
+
+The converter writes story links. Links of page items (class 0x21D32)
+are not written: their page item's `LinkedPageItemOption` was not
+studied.
+
+### Link source IDs (`LinkResourceId`)
+
+`idinternalcontent:<id>` names the story a link copies by an ID, and
+that story has `LinkResourceId="<id>"`. A text frame can have one too
+(the source of a linked page item). The IDs are in chunk 0x21D06 of the
+document object (UID 1):
+
+| Offset | Type | Contents |
+|---|---|---|
+| 0 | u32 | not identified (non-zero even when the list is empty) |
+| 4 | u32 | count *n* |
+| 8 | *n* × (u32, u32) | ID, UID of a story or spline item |
+
+IDML writes `LinkResourceId="<ID>"` (decimal) on the element whose
+`Self` is that UID. In 36 of 36 distinct pairs whose IDML has any
+`LinkResourceId`, the set of (UID, ID) equals the chunk's list exactly
+(195 values: 189 `Story`, 6 `TextFrame`; 31 trustworthy documents). In
+the other 1,500 pairs the list is empty. Listed UIDs are stories and
+spline items, all `TextFrame` in IDML. IDs are below 32,768. The
+converter writes the attribute on stories and text frames; a listed UID
+that is not written is ignored.
+
+### Linked story options (chunk 0x21D12)
+
+Chunk 0x21D12 (10 bytes) on a story. IDML writes `Story/LinkedStoryOption`
+when the story has the chunk and a link (30 of 30). Two stories with the
+chunk and no link have no `LinkedStoryOption`; stories placed from Word
+have no chunk.
+
+| Offset | Seen | IDML |
+|---|---|---|
+| 0–5 | `00 00 01 00 00 00` in all 30 | `UpdateWhileSaving="false"`, `WarnOnUpdateOfEditedStory="true"`, `RemoveForcedLineBreaks="false"` in all 30 (which byte holds which is not shown; the converter writes these values) |
+| 6 | u32 | `ApplyStyleMappings`: 1 `true` (28), 0 `false` (2) |
+
+The preferences object (0x2202) has the same chunk (`00 00 01 00 00 00 00
+00 00 00` in every document); the document's `LinkedStoryOption` is
+written from observed values (`idml-values.md`).
+
+### Style mappings (chunk 0x21D30)
+
+Chunk 0x21D30 holds five lists. Each list: u32 count, then per entry a
+kind byte (2 or 3), an in-object string (source name), a kind byte (2),
+an in-object string (destination name) and a u32 rule.
+
+| List | IDML |
+|---|---|
+| 1 | `ParaStyleMapping` |
+| 2 | `CharStyleMapping` |
+| 3–5 | empty in every sample (the schema has `TableStyleMapping` and `CellStyleMapping`; which list is which is not shown) |
+
+| Rule | `MappingRuleType` | IDML name | Seen |
+|---|---|---|---|
+| 0 | `StyleMappingRule` | as stored | 4 |
+| 1 | `GroupMappingRule` | `:*` after source and destination | 60 |
+| 2 | `StyleToGroupMappingRule` | `:*` after the destination | 30 |
+
+The kind byte does not add `$ID/` (kind 3 is on `[Basic Paragraph]`
+under a localized name). Group names may contain `/`
+(`<group>/<subgroup>`), written as stored. Attributes: `Self` is the
+owner's `Self`, then `ParaStyleMapping` or `CharStyleMapping` and the
+index in its list from 0; `SourceStyleName`, `DestinationStyleName`,
+`MappingRuleType`.
+
+- **Story**: a story chunk longer than 20 bytes gives the story's
+  elements (32 of 32 stories; 107 elements equal, `Self` included). The
+  empty form is 20 zero bytes (75 stories), and no story with it has
+  mappings.
+- **Document**: chunk 0x21D30 of the preferences object (class 0x2202),
+  in `designmap.xml` with `Self="dParaStyleMapping<i>"`. Non-empty in 1
+  of 1,553 documents, the only one with `ParaStyleMapping` in
+  `designmap.xml` (2 `StyleMappingRule` entries, equal). 1,431 documents
+  have the empty chunk, 121 none.
+
+Rule code 3 and entries in lists 3 to 5 are not seen; the converter
+leaves them out with a warning.
+
+### Import options of placed text (chunk 0x12202)
+
+Story chunk 0x12202 is 8 bytes: u32 UID of an import options object,
+u32 0 (in all). The class of that object decides the `Properties`
+child:
+
+| Class | IDML | Stories |
+|---|---|---|
+| 0x12210 | `WordRTFImportPreferences` | 39 of 39 |
+| 0x12213 | `ExcelImportPreferences` | 9 of 9 |
+| UID 0 | none | 20 |
+
+**Word (class 0x12210).** Chunk 0x12210: 19 u32 (*s0* … *s18*). IDML
+writes a list of 19 items for versions 8 to 12 and 20 for 14 to 20 (no
+version-13 sample). This mapping reproduces all 39 stories (8 with 19
+items, 31 with 20; 10 distinct option sets):
+
+| Item (20-item list) | Type | Value |
+|---|---|---|
+| 0, 1 | boolean | *s0* ≠ 0, *s1* ≠ 0 |
+| 2 | enumeration | *s5*: 0 `PageBreak`, 2 `None` (1 sample) |
+| 3 | boolean | `true` (no stored field) |
+| 4 | enumeration | `UnformattedTable` (no stored field) |
+| 5, 6 | boolean | *s8* ≠ 0, *s9* ≠ 0 |
+| 7 | boolean | `false` (no stored field) |
+| 8, 9 | enumeration | *s11*, *s12*: 0 `ResolveClashUseExisting`, 2 `ResolveClashAutoRename` (1 sample each) |
+| 10 to 13 | boolean | *s14*, *s15*, *s16*, *s17* ≠ 0 |
+| 14 | boolean | `false`, only in the 20-item list (no stored field) |
+| 15, 16 | boolean | `true` (no stored field) |
+| 17 | long | *s4* (1 or 2) |
+| 18, 19 | boolean | `false` (no stored field) |
+
+The 19-item list is the same without item 14. In every sample *s0* =
+*s1*, *s14* = *s15* and *s16* = *s17*, so the order within each pair is
+not shown, and items 0/1, 10/11 and 12 are told apart only by assuming
+the same stored layout in both list lengths. Code 1 of *s5*, *s11* and
+*s12* is not seen; the converter leaves the property out with a warning
+for a code not in the table.
+
+**Excel (class 0x12213).** Chunk 0x12213:
+
+| Offset | Type | Seen | IDML item |
+|---|---|---|---|
+| 0 | u32 | 1 | |
+| 4 | u32 | 0 | |
+| 8 | u32 | 3 | |
+| 12 | u32 | 0 | |
+| 16 | u32 | 0 or 1 | 3: 0 `ExcelFormattedTable` (5), 1 `ExcelUnformattedTable` (4) |
+| 20 | u32 | 1 | |
+| 24 | flag byte, in-object string | flag 1, `Sheet1` | 7: `$ID/Sheet1` |
+| then | flag byte, in-object string | flag 0, the range (4 distinct values) | 8: the range |
+| then | flag byte, in-object string | flag 1, empty | 6: `$ID/` |
+| then | u32 | 1 | |
+
+The strings are written as names (`$ID/` and the string for flag 1).
+Every sample has the list `Spreadsheet` (enumeration), `3` (long),
+`false`, the table option, `true`, `true`, item 6, item 7, item 8, `1`
+(long). Items 0, 1, 2, 4, 5 and 9 have no identified field: the longs
+`3` and `1` equal the u32 at 8 and the last u32 in every sample, which
+does not show that they come from them.
+
+### Style mapping preferences (chunk 0x12216)
+
+Story chunk 0x12216: u32 *p*, u32 *c*, then 2·*p* names (paragraph
+styles: source, destination, …) and 2·*c* names (character styles),
+each a flag byte (0 to 3) and an in-object string. When *p* + *c* > 0,
+IDML writes `Properties/StyleMappingPreferences`: a list of two lists of
+strings, the paragraph names and the character names (empty when *c* =
+0), as stored (flag 1 does not add `$ID/`). 67 of 67 stories with the
+chunk (29 non-empty; *p* and *c* up to 13); no story has
+`StyleMappingPreferences` without the chunk. The import options come
+before it in `Properties`; no story has Excel options together with it.
+
+### Element order
+
+In all 107 stories with these elements InDesign writes: `Properties`
+(import options, then `StyleMappingPreferences`), `StoryPreference`,
+`GridDataInformation`, `LinkedStoryOption`, `InCopyExportOption`,
+`ParaStyleMapping`, `CharStyleMapping`, `Link`, then the text. The
+schema allows this order (`Story.rnc`). In `designmap.xml` the document
+mappings follow the `idPkg:Story` references.
+
+### Plugin data
+
+Stories of 39 version-14.0 documents also carry data of two third-party
+plugins (`DocsFlowImportSettings`, the `WordsFlow…` properties, the
+`Story` attributes `Observers` … `ComponentId`). The published IDML
+schema rejects it, and it follows the plugins of the exporting computer;
+the converter does not write it (`unknowns.md`, plugin data;
+`docs/measurement.md`).
 
 ## Styles (0x205)
 
