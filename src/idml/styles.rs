@@ -895,19 +895,9 @@ impl Writer<'_> {
         for &c in &g.children {
             if let Some(sub) = self.doc.style_groups.get(&c) {
                 let sub_tag = format!("{tag}Group");
-                let path = self.group_path.get(&sub.uid).cloned().unwrap_or_default();
-                // A nested group's name is its full path (objects.md,
-                // style groups).
-                let name = if path.is_empty() {
-                    sub.name.clone()
-                } else {
-                    path.join(":")
-                };
+                let name = self.group_name(sub);
                 x.start(&sub_tag)
-                    .attr(
-                        "Self",
-                        format!("{sub_tag}/$ID/{}", self_name(&path.join(":"))),
-                    )
+                    .attr("Self", format!("{sub_tag}/$ID/{}", self_name(&name)))
                     .attr("Name", builtin_key(&name));
                 self.table_style_group_children(x, sub, tag, styles, seen);
                 x.end();
@@ -917,6 +907,15 @@ impl Writer<'_> {
                 self.table_style_element(x, tag, s, styles);
             }
         }
+    }
+
+    /// The IDML name of a style group: the names of the groups on its
+    /// path and its own (objects.md, style groups).
+    fn group_name(&self, g: &StyleGroup) -> String {
+        self.group_path.get(&g.uid).map_or_else(
+            || style_path([g.name.as_str()]),
+            |p| style_path(p.iter().map(String::as_str)),
+        )
     }
 
     pub(super) fn style_group_children(
@@ -929,19 +928,9 @@ impl Writer<'_> {
     ) {
         for &c in &g.children {
             if let Some(sub) = self.doc.style_groups.get(&c) {
-                let path = self.group_path.get(&sub.uid).cloned().unwrap_or_default();
-                // A nested group's name is its full path (objects.md,
-                // style groups).
-                let name = if path.is_empty() {
-                    sub.name.clone()
-                } else {
-                    path.join(":")
-                };
+                let name = self.group_name(sub);
                 x.start(sub_tag)
-                    .attr(
-                        "Self",
-                        format!("{sub_tag}/$ID/{}", self_name(&path.join(":"))),
-                    )
+                    .attr("Self", format!("{sub_tag}/$ID/{}", self_name(&name)))
                     .attr("Name", builtin_key(&name));
                 self.style_group_children(x, sub, tag, sub_tag, written);
                 x.end();

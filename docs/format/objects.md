@@ -2872,6 +2872,12 @@ top-level group, joined by `:`, as in its `Self`:
 paragraph style groups, 25 of 25 character style groups and 2 of 2
 object style groups (three levels at most); top-level groups have `$ID/`
 and their name (622 of 622).
+A `:` inside a group's name is written `\:`, as in a style's own name
+(below): such a group has `Name="$ID/<a>\: <b>"` and
+`Self="ParagraphStyleGroup/$ID/<a>\%3a <b>"`, and its styles have
+`Name="<a>\: <b>:<style>"`. No pair of the corpus has such a group; this
+rests on one privately held sample (1 top-level paragraph style group
+with 6 paragraph styles, all matching).
 Cell style groups work the same way: the root cell style group's
 children (chunk 0x2024E) include groups of class 0xCA8B, and IDML writes
 each as `<CellStyleGroup Self="CellStyleGroup/$ID/<group>"

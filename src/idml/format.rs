@@ -364,6 +364,17 @@ pub(super) fn variable_name(name: &str) -> String {
 
 /// Escape a name for use in a `Self` reference (`:` separates style
 /// groups there).
+/// Names joined into the IDML name of a style or style group: `:`
+/// between them, and `\\:` for a `:` inside one (objects.md, style
+/// groups).
+pub(super) fn style_path<'a>(names: impl IntoIterator<Item = &'a str>) -> String {
+    names
+        .into_iter()
+        .map(|n| n.replace(':', "\\:"))
+        .collect::<Vec<_>>()
+        .join(":")
+}
+
 pub(super) fn self_name(name: &str) -> String {
     name.replace('%', "%25")
         .replace(':', "%3a")
@@ -426,6 +437,13 @@ impl Writer<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn escapes_a_colon_inside_a_style_or_group_name() {
+        let name = style_path(["a: b", "c"]);
+        assert_eq!(name, "a\\: b:c");
+        assert_eq!(self_name(&name), "a\\%3a b%3ac");
+    }
 
     #[test]
     fn sets_the_baseline_frame_grid_colour() {
