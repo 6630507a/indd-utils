@@ -64,6 +64,17 @@ separately (rule and evidence: `docs/measurement.md`).
 
 ## Commands
 
+- `python3 -I tools/check.py LABEL [--base REV]`: the check for a finished
+  task or batch. One run does the build, tests, clippy, the full
+  measurement with schema validation, the output diff against REV (default
+  `origin/main`), the README numbers, the render comparison and the
+  privacy checks, and freezes the results to `~/.cache/indd-frozen-LABEL/`.
+  It reuses conversions, validations and renders of earlier runs
+  (`~/.cache/indd-check/`), so a run takes about 3–4 minutes when little
+  changed. Local settings (DesignCraft binary, private documents, privacy
+  pattern) are in `.thoughts/tools/check.json`. Details:
+  `docs/measurement.md`, "Check runs". Run it in the background with
+  `python3 -I -u` and output to a log; never start a second copy.
 - `cargo test` (all tests), `cargo clippy --all-targets`, `cargo fmt`.
 - `tools/check_wasm.sh [file.indd...]`: build the library for
   `wasm32-unknown-unknown` (`rustup target add wasm32-unknown-unknown`),
