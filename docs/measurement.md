@@ -555,15 +555,15 @@ first 10 hexadecimal digits of the INDD's SHA-256; only `triples.tsv` and
 once: build, tests, clippy, the full measurement with schema validation,
 the output diff against a base revision, the README numbers, the render
 comparison, the privately held documents and the privacy checks. Most of
-the work of the separate tools is repeated conversion and the validation
-and rendering of packages that did not change; check.py does each once
-and keeps the results.
+the work of the separate tools is repeated conversion and the validation,
+comparison and rendering of packages that did not change; check.py does
+each once and keeps the results.
 
 | Stage | What runs | What is kept |
 |---|---|---|
 | Build | `cargo build --release`; the binary is copied to `~/.cache/indd-check/bin/HASH` | The binary of each check run |
 | Tests, clippy | `cargo test --release` (library, doc and fixture tests) and `cargo clippy --all-targets`, in the background | |
-| Measurement | `compare.py --all --exclude own/` with schema validation, `--cache` and `--valid-cache` | Every conversion, under `out/HASH/` by cache key (below); validation results by part in `valid.tsv` |
+| Measurement | `compare.py --all --exclude own/` with schema validation, `--cache` and `--valid-cache` | Every conversion, under `out/HASH/` by cache key (below); validation results by part in `valid.tsv`; the comparison of each pair with its reference, under `out/compare/` by content (below) |
 | Base outputs | The base revision (default `origin/main`) is looked up in `revs.tsv` (commit → binary); if missing, it is built as `diff_outputs.py` builds it and converted, in the background | The base binary and its conversions |
 | Diff | Exit status, stderr and package entries of both conversions of every file, as `diff_outputs.py` compares them | `diff.tsv` |
 | README | `readme_numbers.py` from the measurement's `summary.json` | |
@@ -579,17 +579,30 @@ from `corpus/inventory.tsv` when the inventory lists the file with its
 present size, and is computed from the file otherwise. A conversion is
 kept only when the converter exits by itself (status 0, 1, 2 or 101 for a
 panic); a run killed by a signal or a timeout is converted again by the
-next run, and so are `indd xmp` and `indd uids` if either was killed. A
-commit enters `revs.tsv` when check.py runs on it with
+next run, and so are `indd xmp` and `indd uids` if either was killed.
+compare.py keeps the result of each pair's comparison (the pair's counts,
+stale reasons and mismatch examples) in `out/compare/`, named by a SHA-256
+of everything the result depends on: the reference IDML's SHA-256, the
+output package's SHA-256 from the conversion record, the SHA-256 of the
+`indd xmp` and `indd uids` outputs, the pair's path and file name,
+`--show`, the SHA-256 of compare.py's source (it imports no other module
+of the repository) and the Python version. These names do not depend on
+the binary, so after a converter change only the pairs whose output
+changed are compared again, and a change to compare.py compares every
+pair again. A result is written under a temporary name and renamed, and
+only when the comparison succeeds; a file that cannot be read is compared
+again and replaced. The comparisons are not deleted automatically either.
+A commit enters `revs.tsv` when check.py runs on it with
 no uncommitted change under `src/` or to the Cargo files, so the next
 check run with that commit as its base reuses the outputs. The
 configuration that names private documents, the privacy pattern, the
 `--subtotal` prefixes and the DesignCraft paths is a local JSON file
 (`--config`, default `.thoughts/tools/check.json`); the module docstring
 lists its keys. The results equal those of the separate tools:
-`compare.py` gives the same tables and `summary.json` with or without
-`--cache` and `--valid-cache`, and `render_compare.py` gives the same
-tables with or without `--reuse-results`.
+`compare.py` gives the same output, tables and `summary.json` with or
+without `--cache` and `--valid-cache` (with `--cache` it adds one line,
+how many comparisons it took from the cache), and `render_compare.py`
+gives the same tables with or without `--reuse-results`.
 
 check.py prints each stage's time and a summary, and copies the binary,
 the measurement's tables and `summary.json`, the render tables

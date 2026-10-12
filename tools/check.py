@@ -17,7 +17,8 @@ Stages (docs/measurement.md, "Check runs"):
 2. compare.py --all --exclude own/ with schema validation, conversions kept
    in CACHE/out/<binary hash>/ (compare.py --cache) and validation results
    in CACHE/valid.tsv (--valid-cache): a package is converted once per
-   binary and validated once per content. Tables and summary.json go to
+   binary, and validated and compared with its reference once per content
+   (comparisons in CACHE/out/compare/). Tables and summary.json go to
    target/compare/ as with compare.py; --subtotal prefixes come from the
    configuration.
 3. The outputs of the base revision (default origin/main): CACHE/revs.tsv

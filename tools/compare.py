@@ -28,6 +28,12 @@ a short hash of its file name): the package (.idml), a record of the exit
 status, stderr and the package's entries (.json), and for pairs the output
 of `indd xmp` and `indd uids`. A later run with the same binary reuses them
 instead of converting. A run killed by a signal or a timeout is not kept.
+It also keeps the result of each pair's comparison in DIR/compare/, named
+by a SHA-256 of everything the result depends on (comparison_key): the
+reference IDML, the output package, the xmp and uids outputs, the pair's
+path and file name, --show, the source of this file and the Python
+version. A later run, with any binary, reuses it for a pair whose output
+did not change.
 --valid-cache FILE keeps schema validation results by part (schema and
 SHA-256 of the part; for the same schemas, Jing and tools/validate.sh) and
 validates only parts it does not list, in reduced packages; the results
@@ -72,10 +78,12 @@ Embedded file data (`Contents`) is compared by digest, so it is reported as
 import argparse
 import fnmatch
 import functools
+import gc
 import hashlib
 import json
 import multiprocessing
 import os
+import pickle
 import re
 import subprocess
 import sys
@@ -125,6 +133,15 @@ def rejection_kinds(rejected):
     return ", ".join(f"{n:,} {name}" for name, n in kinds.most_common())
 
 
+def corpus_path(path):
+    """A path under corpus/ as a string relative to corpus/, like
+    str(path.relative_to(...)), which takes several times as long."""
+    prefix, s = str(ROOT / "corpus") + os.sep, str(path)
+    if not s.startswith(prefix):
+        raise ValueError(f"{path} is not under {ROOT / 'corpus'}")
+    return s[len(prefix):]
+
+
 def inventory():
     """Rows of corpus/inventory.tsv (tools/inventory.py), as dicts."""
     lines = (ROOT / "corpus" / "inventory.tsv").read_text().splitlines()
@@ -142,7 +159,7 @@ def digest(indd, known):
     """SHA-256 of a corpus file. The inventory's digest is taken when the
     inventory lists the file with its present size (the inventory records no
     modification time); otherwise the file is read."""
-    path = str(indd.relative_to(ROOT / "corpus"))
+    path = corpus_path(indd)
     sha, size = known.get(path, (None, None))
     if sha and size == str(indd.stat().st_size):
         return sha
@@ -182,7 +199,7 @@ def unpaired(substr, exclude, seen, known):
     for indd in sorted((ROOT / "corpus").rglob("*")):
         if indd.suffix.lower() not in (".indd", ".indt") or not indd.is_file():
             continue
-        path = str(indd.relative_to(ROOT / "corpus"))
+        path = corpus_path(indd)
         if substr and substr not in path or any(path.startswith(e) for e in exclude):
             continue
         d = digest(indd, known)
@@ -596,7 +613,8 @@ EXCLUDED = [
 ] + [
     ("Story", "P.DocsFlowImportSettings",
      "written by a plugin of the exporting InDesign; not in the IDML schema"),
-    ("Story", "P.WordsFlow*", "written by a plugin of the exporting InDesign; not in the IDML schema"),
+    ("Story", "P.WordsFlow*",
+     "written by a plugin of the exporting InDesign; not in the IDML schema"),
     # ELEMENT leaves out the whole element, with all its values.
     ("Document/WordsFlowPreference", ELEMENT,
      "written by a plugin of the exporting InDesign; not in the IDML schema"),
@@ -664,6 +682,14 @@ def values(tag, el):
     return {k: v for k, v in a.items() if k != "Self" and not excluded(tag, k)}
 
 
+def add_counts(counter, counts):
+    """counter.update(counts), with the same result and key order and less
+    work per key."""
+    get = counter.get
+    for k, v in counts.items():
+        counter[k] = get(k, 0) + v
+
+
 class Stats:
     """Comparison counts over a set of pairs."""
 
@@ -688,26 +714,50 @@ class Stats:
         self.pairs = []
         self.found = Counter()
         self.total = Counter()
-        self.attr_ok = defaultdict(Counter)
+        # (tag, attribute, "ok" / "wrong" / "missing") -> values; attributes()
+        # groups them by attribute.
+        self.attr_ok = Counter()
         self.story_ok = Counter()
         self.short_docs = Counter()  # (kind, tag, attribute) -> documents affected
 
-    def add(self, other):
+    COUNTERS = ("gap_wrong", "gap_missing", "gap_docs", "gap_total", "extra_values",
+                "extra_docs", "found", "total", "attr_ok", "story_ok", "short_docs")
+
+    def __getstate__(self):
+        """Plain dicts in place of the Counters, which unpickle several times
+        slower."""
+        state = dict(vars(self))
+        for c in self.COUNTERS:
+            state[c] = dict(state[c])
+        return state
+
+    def __setstate__(self, state):
+        for c in self.COUNTERS:
+            state[c] = Counter(state[c])
+        vars(self).update(state)
+
+    def attributes(self):
+        """(tag, attribute) -> Counter of "ok", "wrong" and "missing"."""
+        out = defaultdict(Counter)
+        for (tag, k, kind), n in self.attr_ok.items():
+            out[(tag, k)][kind] = n
+        return out
+
+    def add(self, other, counts=True):
+        """Add the counts of `other`. Without `counts`, only the numbers of
+        pairs, values and stories (subtotal)."""
         self.docs += other.docs
         self.values += other.values
         self.reproduced += other.reproduced
         self.extra += other.extra
         self.relinked += other.relinked
-        for c in ("gap_wrong", "gap_missing", "gap_docs", "gap_total", "extra_values",
-                  "extra_docs"):
-            getattr(self, c).update(getattr(other, c))
         self.pairs += other.pairs
-        self.found.update(other.found)
-        self.total.update(other.total)
-        for k, c in other.attr_ok.items():
-            self.attr_ok[k].update(c)
-        self.story_ok.update(other.story_ok)
-        self.short_docs.update(other.short_docs)
+        add_counts(self.story_ok, other.story_ok)
+        if not counts:
+            return
+        for c in self.COUNTERS:
+            if c != "story_ok":
+                add_counts(getattr(self, c), getattr(other, c))
 
     def coverage(self):
         return self.reproduced / self.values if self.values else 1.0
@@ -758,12 +808,12 @@ def compare_pair(name, ref, ours, examples, show):
             if k == "Self":
                 continue
             if k not in mine:
-                p.attr_ok[(tag, k)]["missing"] += 1
+                p.attr_ok[(tag, k, "missing")] += 1
                 short.add(("attribute", tag, k))
             elif norm(mine[k]) == norm(v):
-                p.attr_ok[(tag, k)]["ok"] += 1
+                p.attr_ok[(tag, k, "ok")] += 1
             else:
-                p.attr_ok[(tag, k)]["wrong"] += 1
+                p.attr_ok[(tag, k, "wrong")] += 1
                 short.add(("attribute", tag, k))
                 if len(examples[(tag, k)]) < show:
                     examples[(tag, k)].append((name, s, v, mine[k]))
@@ -780,12 +830,12 @@ def compare_pair(name, ref, ours, examples, show):
             for k, v in attrs.items():
                 o = mine[start].get(k)
                 if o is None:
-                    p.attr_ok[("TextRange", k)]["missing"] += 1
+                    p.attr_ok[("TextRange", k, "missing")] += 1
                     short.add(("attribute", "TextRange", k))
                 elif norm(o) == norm(v):
-                    p.attr_ok[("TextRange", k)]["ok"] += 1
+                    p.attr_ok[("TextRange", k, "ok")] += 1
                 else:
-                    p.attr_ok[("TextRange", k)]["wrong"] += 1
+                    p.attr_ok[("TextRange", k, "wrong")] += 1
                     short.add(("attribute", "TextRange", k))
                     if len(examples[("TextRange", k)]) < show:
                         examples[("TextRange", k)].append((name, sid, start, v, o))
@@ -842,7 +892,8 @@ def value_coverage(p, ref, ours):
             continue
         total[(tag, ELEMENT)] += 1
         mine = values(tag, mine)
-        if tag == "Link" and mine.get("LinkResourceURI") not in (None, theirs.get("LinkResourceURI")):
+        if tag == "Link" and \
+                mine.get("LinkResourceURI") not in (None, theirs.get("LinkResourceURI")):
             theirs = {k: v for k, v in theirs.items() if not RELINKED.fullmatch(k)}
             mine = {k: v for k, v in mine.items() if not RELINKED.fullmatch(k)}
             p.relinked += 1
@@ -991,9 +1042,10 @@ def read_uids(path):
     return uids
 
 
-def compare_job(rel, name, idml, folder, key, show):
+def compare_job(rel, name, idml, folder, key, show, save=None):
     """Compare one converted pair (convert_cached); runs in a worker
-    process. (Stats, stale reasons, examples)."""
+    process. (Stats, stale reasons, examples). With `save`, the result is
+    also written to that file (comparison cache)."""
     folder = Path(folder)
     xmp = folder / f"{key}.xmp"
     indd_date = modify_date(xmp.read_bytes()) if xmp.exists() else None
@@ -1003,7 +1055,54 @@ def compare_job(rel, name, idml, folder, key, show):
     examples = defaultdict(list)
     p = compare_pair(name, ref, ours, examples, show)
     p.pairs = [(rel, p.reproduced, p.values)]
+    examples = dict(examples)
+    if save:
+        # Only built-in types, so that the file loads whatever module name
+        # this file runs under.
+        tmp = save.with_name(f"{save.name}.{os.getpid()}.tmp")
+        tmp.write_bytes(pickle.dumps((p.__getstate__(), reasons, examples),
+                                     pickle.HIGHEST_PROTOCOL))
+        tmp.replace(save)
     return p, reasons, examples
+
+
+@functools.cache
+def comparison_code():
+    """SHA-256 of what a comparison runs: the source of this file (it
+    imports no other module of the repository) and the Python version."""
+    h = hashlib.sha256(Path(__file__).read_bytes())
+    h.update(sys.version.encode())
+    return h.hexdigest()
+
+
+def comparison_key(rel, name, idml, folder, key, rec, show):
+    """The name of a pair's result in the comparison cache: a SHA-256 of
+    everything compare_job reads or is given. The output package is named
+    by its SHA-256 in the conversion record, so a result is reused by any
+    converter binary that produces the same output."""
+    folder = Path(folder)
+    parts = [comparison_code(), rel, name, str(show), file_sha256(idml),
+             rec.get("package") or file_sha256(folder / f"{key}.idml")]
+    for ext in ("xmp", "uids"):
+        f = folder / f"{key}.{ext}"
+        parts.append(file_sha256(f) if f.exists() else "-")
+    return hashlib.sha256("\0".join(parts).encode()).hexdigest()
+
+
+def cached_comparison(rel, name, idml, folder, key, rec, show, cache, procs):
+    """compare_job's result for a pair, from the comparison cache folder
+    `cache` or computed in `procs` and added to it. (result, taken from
+    the cache)."""
+    path = Path(cache) / f"{comparison_key(rel, name, idml, folder, key, rec, show)}.pickle"
+    try:
+        state, reasons, examples = pickle.loads(path.read_bytes())
+        p = Stats.__new__(Stats)
+        p.__setstate__(state)
+        return (p, reasons, examples), True
+    except Exception:
+        # Not cached, or a damaged file, which compare_job replaces.
+        pass
+    return procs.submit(compare_job, rel, name, idml, folder, key, show, path).result(), False
 
 
 @functools.cache
@@ -1060,7 +1159,7 @@ class ValidationCache:
                 try:
                     key, schema, sha, errs = line.split("\t", 3)
                     if key == self.key:
-                        self.known[(schema, sha)] = json.loads(errs)
+                        self.known[(schema, sha)] = [] if errs == "[]" else json.loads(errs)
                 except ValueError:
                     continue
 
@@ -1129,6 +1228,10 @@ def validate_cached(outs, args, cache):
 
 
 def main():
+    # The run keeps every pair's counts, millions of objects that the cyclic
+    # garbage collector would scan again and again; it creates no garbage
+    # cycles worth collecting.
+    gc.disable()
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--detail", action="append", default=[],
@@ -1211,15 +1314,27 @@ def main():
         procs = ProcessPoolExecutor(max(1, args.jobs),
                                     mp_context=multiprocessing.get_context("forkserver"))
         # A pair is compared in a worker process as soon as it is converted.
+        # With --cache, a thread first looks for the result in the
+        # comparison cache.
+        ccache = Path(args.cache) / "compare" if args.cache else None
+        if ccache:
+            ccache.mkdir(parents=True, exist_ok=True)
+            lookups = ThreadPoolExecutor(max(1, args.jobs))
         jobs = {}
+        reused = 0
         lock = threading.Lock()
 
         def comparison(n):
             indd, idml, key = items[n]
+            rel = corpus_path(indd)
             with lock:
-                if n not in jobs:
-                    jobs[n] = procs.submit(compare_job, str(indd.relative_to(ROOT / "corpus")),
-                                           indd.name, idml, folder, key, args.show)
+                if n not in jobs and ccache:
+                    jobs[n] = lookups.submit(cached_comparison, rel, indd.name, idml, folder,
+                                             key, conversions[n].result(), args.show, ccache,
+                                             procs)
+                elif n not in jobs:
+                    jobs[n] = procs.submit(compare_job, rel, indd.name, idml, folder, key,
+                                           args.show)
                 return jobs[n]
 
         def compare_when_converted(n):
@@ -1249,7 +1364,7 @@ def main():
             for n in batch:
                 indd, idml, key = items[n]
                 rec, out = recs[n], folder / f"{key}.idml"
-                rel = str(indd.relative_to(ROOT / "corpus"))
+                rel = corpus_path(indd)
                 count_warnings(rec["stderr"])
                 if rec["exit"] != 0:
                     if idml is None:
@@ -1269,7 +1384,11 @@ def main():
                     else:
                         other_invalid.append((indd.name, e))
                 if idml is not None:
-                    p, reasons, ex = comparison(n).result()
+                    result = comparison(n).result()
+                    if ccache:
+                        result, hit = result
+                        reused += hit
+                    p, reasons, ex = result
                     for k, found in ex.items():
                         room = (max(args.show, 3) if k == ("Story", "text") else args.show) \
                             - len(examples[k])
@@ -1283,6 +1402,8 @@ def main():
                 if not args.cache:
                     out.unlink(missing_ok=True)
         threads.shutdown()
+        if ccache:
+            lookups.shutdown()
         procs.shutdown()
         endnote_passed = []
         if endnote_pending:
@@ -1331,6 +1452,8 @@ def main():
                 print(f"  with anchored form field errors: {len(with_forms)}: {with_forms[:10]}")
             for name, errs in other_invalid[:10]:
                 print(f"  {name}: {len(errs)} errors, {errs[:3]}")
+    if args.cache:
+        print(f"comparisons: {reused} of {len(pair_rows)} pairs taken from {ccache}")
     print(f"warnings: {sum(warnings.values())} (count, files, kind)")
     for kind, count in warnings.most_common(args.warnings):
         print(f"  {count:6} {warned_files[kind]:4}  {kind[:150]}")
@@ -1348,10 +1471,12 @@ def main():
         print(f"  {tag:34} {st.found[tag]:6} / {n:6}")
     if args.shortfalls:
         print(f"\nshortfalls by documents affected (of {st.docs} {which}):")
+        attrs = st.attributes()
+
         def instances(kind, tag, k):
             """How many elements, values or stories fall short."""
             if kind == "attribute":
-                return st.attr_ok[(tag, k)]["wrong"] + st.attr_ok[(tag, k)]["missing"]
+                return attrs[(tag, k)]["wrong"] + attrs[(tag, k)]["missing"]
             if kind == "element":
                 return st.total[tag] - st.found[tag]
             return st.story_ok["wrong"]
@@ -1359,14 +1484,14 @@ def main():
         for (kind, tag, k), n in ranked[:args.shortfalls]:
             what = f"{st.story_ok['wrong']} stories differ"
             if kind == "attribute":
-                c = st.attr_ok[(tag, k)]
+                c = attrs[(tag, k)]
                 what = f"{c['wrong']} wrong, {c['missing']} missing of {sum(c.values())}"
             elif kind == "element":
                 what = f"{st.total[tag] - st.found[tag]} of {st.total[tag]} not produced"
             print(f"  {n:5}  {tag + (' ' + k if k else ''):56} {what}")
     for tag in args.detail:
         print(f"\nattributes of {tag}, {which} (ok / wrong / missing):")
-        rows = [(k, c) for (t, k), c in st.attr_ok.items() if t == tag]
+        rows = [(k, c) for (t, k), c in st.attributes().items() if t == tag]
         for k, c in sorted(rows, key=lambda kc: -sum(kc[1].values())):
             print(f"  {k:40} {c['ok']:6} {c['wrong']:6} {c['missing']:6}")
             for ex in examples[(tag, k)]:
@@ -1387,13 +1512,13 @@ def subtotal(prefix, check, todo, pair_rows, failed_paths, invalid_paths):
     does not start with `prefix` (--subtotal)."""
     def inside(rel):
         return not rel.startswith(prefix)
-    files = sum(1 for indd, _ in todo if inside(str(indd.relative_to(ROOT / "corpus"))))
+    files = sum(1 for indd, _ in todo if inside(corpus_path(indd)))
     every, trusted = Stats(), Stats()
     for rel, p, reasons in pair_rows:
         if inside(rel):
-            every.add(p)
+            every.add(p, counts=False)
             if not reasons:
-                trusted.add(p)
+                trusted.add(p, counts=False)
     failed = [(rel, err) for rel, err in failed_paths.items() if inside(rel)]
     failures = split_rejected(failed)[1]
     invalid = sum(1 for rel in invalid_paths if inside(rel)) if check else None
@@ -1512,7 +1637,8 @@ def headline(args, every, trusted, pair_rows):
           f"(documents, values wrong, missing, of values; all in {out / 'gaps.tsv'}):")
     for key, docs, w, m in rows[:args.gaps]:
         print(f"  {docs:5} {w:7} {m:7} {trusted.gap_total[key]:8}  {gap_name(key)[:90]}")
-    print("\nvalue gaps, trustworthy pairs, by values (documents, values wrong, missing, of values):")
+    print("\nvalue gaps, trustworthy pairs, by values "
+          "(documents, values wrong, missing, of values):")
     for key, docs, w, m in sorted(rows, key=lambda r: -(r[2] + r[3]))[:args.gaps // 2]:
         print(f"  {docs:5} {w:7} {m:7} {trusted.gap_total[key]:8}  {gap_name(key)[:90]}")
     rows = trusted.extras()
