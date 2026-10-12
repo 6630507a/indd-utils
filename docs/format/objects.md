@@ -2147,24 +2147,97 @@ can have the chunk as well; their IDML has no `Contents`, and the
 converter does not use it for them.
 
 Evidence from the corpus pairs: the raw data object equals the IDML
-`Contents` for 124 of 124 PDFs and 2 of 2 images without a link. One
-more image without a link has 0x8C23 = 0; its IDML `Contents` equals the
-preview data described below, which the converter does not write. In the
+`Contents` for 124 of 124 PDFs and 2 of 2 images without a link. In the
 whole corpus, two linked and embedded PDFs also have a 0x2521 object,
 different from the link resource's; with no pair to compare, the
 converter uses the link resource's.
+
+### Images that keep their file in their preview
+
+An image (class 0x1702) without a link whose chunk 0x8C23 is 0 or
+absent keeps its file in its preview (next section): chunk 0x170D names
+an object of class 0x1708, whose chunk 0x119 names a raw data object.
+IDML writes that object's bytes as `Contents`. The converter does so
+only for images, and not for an image whose chunk 0x8C1B names an
+object (see the end of this section). Linked graphics, EPS and PDF
+graphics do not use their preview as `Contents`.
+
+Evidence, over the 9,608 graphics (`Image`, `EPS`, `PDF`, `SVG`, `WMF`,
+`ImportedPage`) in the reference IDMLs of the 1,252 trustworthy pairs,
+each paired with its INDD object by `Self`:
+
+| Images | Count | IDML `Contents` | Preview data equals `Contents` |
+|---|---:|---:|---:|
+| No link, 0x8C23 = 0 | 359 | 359 | 359 |
+| No link, no chunk 0x8C23 | 17 | 17 | 17 |
+| No link, 0x8C23 names a raw data object | 77 | 77 | 4 (the 0x8C23 object equals it in 77) |
+| Linked, embedded | 101 | 101 | 38 |
+| Linked, not embedded | 6,886 | 0 | – |
+
+- The 376 images of the first two rows are in 31 pairs, InDesign 8.0 to
+  18.x. None of them lacks `Contents` in its IDML. Of the 362 that the
+  converter writes, 357 have chunk 0x8C1B set to 0 and 5 have no chunk
+  0x8C1B.
+- Over the whole little-endian corpus (5,734 distinct files), 2,456
+  images without a link have 0x8C23 = 0 or no 0x8C23. All of them have
+  the complete chain: 0x170D names a class 0x1708 object whose chunk
+  0x119 names a raw data object. No image without a link has a 0x8C23
+  that names anything other than 0 or a raw data object. 1,773 of them,
+  in 150 files (InDesign 3.0 to 21.x), have 0x8C1B = 0 or no 0x8C1B;
+  the converter writes their preview data as `Contents`. 15 more are in
+  3 big-endian files (InDesign 8.0 and 11.x).
+- The 17 images with no chunk 0x8C23 have no chunk 0x8CBC either; 5 of
+  them (InDesign 8.0 and 11.x) have only 11 or 12 chunks.
+- Every EPS (483) and PDF (111) graphic without a link names a raw data
+  object, so the case occurs only for images. For EPS graphics without a
+  link the preview never equals `Contents` (0 of 483).
+- Formats of the 376 `Contents`: 357 in the `EPSImage` form below, 17
+  JPEG, 2 TIFF. Of the 2,456 in the whole corpus: `EPSImage` 1,539,
+  JPEG 514, TIFF 391, PNG 12.
+- The converter reproduces 362 of 362 such `Contents` that it writes in
+  the trustworthy pairs, in 20 documents, with no `Contents` where the
+  reference has none. The other 14 images belong to structures the
+  converter leaves out.
+
+**The `EPSImage` form.** 357 of the 376 `Contents` start with the 8
+ASCII bytes `EPSImage`, then five u32 (little-endian): bytes per row,
+width, height, bits per channel, channels. Pixel data follows, height ×
+bytes per row bytes, with nothing after it: the length is 28 + height ×
+width × channels in 357 of 357 (8 bits per channel in all; 3 channels in
+182, 4 in 175). All 357 have 0x8C23 = 0. The converter copies the bytes
+and does not read this form.
+
+**Images that name an old link object.** 762 images without a link
+and with 0x8C23 = 0 or no 0x8C23, in 79 files of InDesign 2.0 to 5.0
+(683 images in 53 little-endian files, 79 in 26 big-endian files), have
+no chunk 0x8CBC, and their chunk 0x8C1B (u32) names an object of class
+0x8C01. That object's chunk 0x8C2A names the image back in 759 of 762.
+No file of these versions has an IDML pair, so it is not known whether
+IDML would write the preview as `Contents`. The converter treats these
+images as linked graphics whose link it does not read: no `Contents`,
+and the preview goes to `Conversion::previews`. In files of later
+versions, 0x8C1B of such an image is 0 or absent in every case.
+
+Not known: why these images keep their file in the preview rather than
+in a raw data object named by 0x8C23. None of the 77 images whose 0x8C23
+names a raw data object has an `EPSImage` `Contents`. The one WMF
+graphic without a link in the pairs has a `Contents` different from its
+preview; it is not examined.
 
 ## Graphic previews
 
 Placed graphics also have chunk 0x170D, the UID of an object of class
 0x1708, whose chunk 0x119 names a raw data object. In the 245 distinct
 little-endian files, these objects are TIFF (613), JPEG (411), PNG (307),
-GIF (27) and one other. In the same-version pairs they equal the IDML
-`Contents` for only 3 of 109 embedded or pasted graphics, so they are
-most likely screen previews. The package does not include them: IDML has
-no place for a preview. `indd::convert` returns the previews of graphics
-without `Contents` in `Conversion::previews`, so an application can show
-one when the linked file is missing.
+GIF (27) and one other. They equal the IDML `Contents` of embedded links
+in 38 of 101 and of EPS graphics without a link in 0 of 483, so they are
+most likely screen previews. The exception is the images of the
+previous section, whose preview is their file. The package does not
+include the other previews: IDML has no place for a preview.
+`indd::convert` returns the previews of graphics without `Contents` in
+`Conversion::previews`, so an application can show one when the linked
+file is missing. An image whose `Contents` is its preview's data is not
+in that list: the package holds its file.
 
 ## Embedded data in IDML
 

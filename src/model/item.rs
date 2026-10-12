@@ -383,7 +383,8 @@ pub struct Graphic {
     pub bounds: [f64; 4],
     pub link: Option<Link>,
     /// The graphic's file, when the document holds it: an embedded link or
-    /// a graphic pasted without a link. IDML writes it as `Contents`.
+    /// a graphic pasted without a link (for some images, their preview's
+    /// data, and then `preview` is `None`). IDML writes it as `Contents`.
     pub contents: Option<Vec<u8>>,
     /// The raw data object of InDesign's screen preview of a graphic whose
     /// file the document does not hold (chunk 0x170D, then chunk 0x119 of
@@ -1366,6 +1367,18 @@ impl<'a> Reader<'a> {
                     },
                     None => None,
                 };
+                // An image that names no raw data object holds its file in
+                // its preview, unless it names an old link object
+                // (objects.md, images that keep their file in their preview).
+                let data = match data {
+                    None if kind == GraphicKind::Image && !self.old_link(uid)? => {
+                        match self.preview(uid).ok().flatten() {
+                            Some(p) => self.raw_data(p)?,
+                            None => None,
+                        }
+                    }
+                    data => data,
+                };
                 (None, data)
             }
         };
@@ -1553,6 +1566,15 @@ impl<'a> Reader<'a> {
             r.object_read(uid);
         }
         self.db.object(uid)
+    }
+
+    /// Whether image `uid` names an object in chunk 0x8C1B, as images of
+    /// InDesign 2.0 to 5.0 do. Their preview is not used as `Contents`.
+    fn old_link(&self, uid: u32) -> Result<bool, Error> {
+        Ok(match self.chunk(uid, chunk::OLD_GRAPHIC_LINK)? {
+            Some(d) if d.len() >= 4 => self.cursor(&d).u32()? != 0,
+            _ => false,
+        })
     }
 
     /// The raw data object of graphic `uid`'s preview, if it names one.
@@ -2039,10 +2061,11 @@ mod preview_tests {
     fn graphics_without_their_file_name_their_preview() {
         let uid = |n: u32| n.to_le_bytes().to_vec();
         let objects = [
-            // Linked: the preview chain ends in a raw data object.
+            // An EPS graphic without its file: the preview chain ends in a
+            // raw data object.
             (
                 10,
-                class::IMAGE,
+                class::EPS,
                 synthetic::chunks(&[(chunk::GRAPHIC_PREVIEW, uid(11))]),
             ),
             (
@@ -2074,6 +2097,27 @@ mod preview_tests {
                 class::IMAGE,
                 synthetic::chunks(&[(chunk::GRAPHIC_PREVIEW, uid(15))]),
             ),
+            // An image that names an old link object (class 0x8C01): its
+            // preview is only a preview.
+            (
+                18,
+                class::IMAGE,
+                synthetic::chunks(&[
+                    (chunk::OLD_GRAPHIC_LINK, uid(19)),
+                    (chunk::GRAPHIC_PREVIEW, uid(11)),
+                ]),
+            ),
+            (19, 0x8C01, Vec::new()),
+            // An image without a link that names no raw data object holds
+            // its file in its preview.
+            (
+                17,
+                class::IMAGE,
+                synthetic::chunks(&[
+                    (chunk::IMAGE_DATA, uid(0)),
+                    (chunk::GRAPHIC_PREVIEW, uid(11)),
+                ]),
+            ),
         ];
         let bytes = synthetic::image(&objects);
         let db = synthetic::database(&bytes, &objects);
@@ -2084,5 +2128,13 @@ mod preview_tests {
         assert_eq!(preview(14), None);
         // A damaged preview is left out; the graphic is still read.
         assert_eq!(preview(16), None);
+        assert_eq!(reader.graphic(16).unwrap().unwrap().contents, None);
+        let image = reader.graphic(17).unwrap().unwrap();
+        assert_eq!(image.contents.as_deref(), Some(&b"preview"[..]));
+        assert_eq!(image.preview, None);
+        assert_eq!(reader.graphic(10).unwrap().unwrap().contents, None);
+        let image = reader.graphic(18).unwrap().unwrap();
+        assert_eq!(image.contents, None);
+        assert_eq!(image.preview, Some(12));
     }
 }

@@ -288,6 +288,9 @@ pub mod chunk {
     pub const FRAME_TEXT_TRANSFORM: u32 = 0x2DE;
     pub const GRAPHIC_BOUNDS: u32 = 0x1633;
     pub const GRAPHIC_LINK: u32 = 0x8CBC;
+    /// u32 object of class 0x8C01 that images of InDesign 2.0 to 5.0 name
+    /// (0 = none).
+    pub const OLD_GRAPHIC_LINK: u32 = 0x8C1B;
     pub const LINK_INFO: u32 = 0x8C9B;
     pub const LINK_RESOURCE_URI: u32 = 0x8C92;
     /// u32 PDF identifier of a link.
