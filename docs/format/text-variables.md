@@ -76,6 +76,18 @@ settings is a paragraph style UID. It differs between files, but in all
   `SearchStrategy`, 0 `FirstOnPage`, 1 `LastOnPage`; *a* is `ChangeCase`,
   0 or 0xCAC9 `None`, 0xCAD0 `Sentencecase`. 1,287 of 1,287 values each
   in the trustworthy pairs.
+- Running header `DeleteEndPunctuation`: no field holds it. The settings
+  parse to the end of chunk 0x28BD and the object has no other chunk
+  (107 of 107 definitions checked), so no field is left for it. All
+  3,568 `MatchParagraphStylePreference` elements in the corpus IDMLs
+  that have the attribute have `false` (2 have none); in the trustworthy
+  pairs, 1,288 of 1,288. The converter writes `false` as a default
+  (`idml-values.md`, defaults) for every running header that matches the
+  sample pattern below or whose settings parse with *c* 0 or 1. Over
+  5,869 running header definitions in 5,504 little-endian files, *c* is
+  0 or 1 except in 2 definitions, in files without IDML, where it is
+  0x40. That may be a flag bit for this attribute; which one is open, so
+  those definitions get no `DeleteEndPunctuation`.
 - Chapter number (0xCAA9): *a* is `Format`, 0 `Current`; 0x4C15
   `Arabic` (one definition, in a trustworthy pair).
 
@@ -89,7 +101,7 @@ The other IDML settings have the same value in every pair:
 | `PageNumberVariablePreference` | `Format="Current"`, `Scope="SectionScope"` |
 | `ChapterNumberVariablePreference` | `Format="Current"` |
 | `FileNameVariablePreference` | `IncludePath="false"`, `IncludeExtension="false"` |
-| `MatchParagraphStylePreference` | `SearchStrategy="FirstOnPage"`, `ChangeCase="None"`, `DeleteEndPunctuation="false"` |
+| `MatchParagraphStylePreference` | `SearchStrategy="FirstOnPage"`, `ChangeCase="None"`, `DeleteEndPunctuation="false"` (`DeleteEndPunctuation`: settings, above) |
 | `CaptionMetadataVariablePreference` | `MetadataProviderName="$ID/#LinkInfoNameStr"` |
 | `CustomTextVariablePreference` | an empty `Contents` string |
 
@@ -114,7 +126,8 @@ The converter writes the settings above only for a definition whose
 fields match its type's pattern. Then the INDD data equals that of the
 samples, so the IDML settings are taken to be equal too. For any other
 definition it writes the date format and the running header style (the
-proven fields) and leaves out the rest. A custom text variable with a
+proven fields) and leaves out the rest, except `DeleteEndPunctuation`
+(settings, above). A custom text variable with a
 non-empty text field gets no `CustomTextVariablePreference`: that the
 text is its contents is not proven.
 

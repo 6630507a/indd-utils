@@ -409,7 +409,7 @@ styles with INDD styles of the same name (486 styles), then checked with
 | 0x1B02 | `FontStyle` | flag + string; empty: below | 474/474 ranges, 202/202 styles |
 | 0x1B03 | `PointSize` | f64 | 1,090/1,090 ranges |
 | 0x1B06 | `HorizontalScale` | fraction ×100 | 2/2 ranges, 75/75 styles |
-| 0x1B07 | `KerningMethod` | code: 15972 Metrics, 79875 Optical, 0x3E65 `$ID/Metrics - Roman Only` (27 styles) | 20/20 ranges, 81/81 styles |
+| 0x1B07 | `KerningMethod` | code: 15972 Metrics, 79875 Optical, 0x3E65 `$ID/Metrics - Roman Only` (27 styles), 0x221 `$ID/None` (21 styles and text defaults); a run with manual kerning: below | 20/20 ranges, 81/81 styles |
 | 0x1B08 | `Ligatures` | 1 = true | 201/201 ranges |
 | 0x1B0A | `StrokeWeight` | f64 | 241/241 ranges |
 | 0x1B0B | `Tracking` | thousandths of an em ×1000 | 49/49 ranges, 94/94 styles |
@@ -419,7 +419,7 @@ styles with INDD styles of the same name (486 styles), then checked with
 | 0x1B10 | `BaselineShift` | f64 | 79/79 styles; see below |
 | 0x1B11 | `Capitalization` | 0 Normal, 1 SmallCaps, 2 AllCaps, 3 CapToSmallCap, 4 LowerCase | 77/77 styles; codes 1, 3 and 4 below |
 | 0x1B12 | `StrokeColor` | swatch UID | 75/75 styles |
-| 0x1B13 | `KerningValue` | ems ×1000; 1e8 = none | 8/8 ranges; scale from a sample and its print PDF, see below |
+| 0x1B13 | `KerningValue` | ems ×1000, rounded to a whole number; 1e8 = none, written `1e+11` | 1e8: 144/144 ranges, 29/29 character styles; rounding and scale (from a sample and its print PDF): below |
 | 0x1B15 | `VerticalScale` | fraction ×100 | 79/79 styles; see below |
 | 0x1B16 | `LeftIndent` | f64 | 22/22 ranges |
 | 0x1B17 | `RightIndent` | f64 | 86/86 styles |
@@ -825,12 +825,35 @@ The converter writes the angle and the two booleans. It leaves out
 value 0 does not show the unit IDML uses, and the angle shows that it
 need not be the stored number.
 
-**`KerningValue` (0x1B13).** Every root paragraph style stores 1e8, and
-IDML writes no `KerningValue` on root styles; the converter leaves 1e8
-out. In one pair, 8 ranges store 0 and IDML writes `KerningValue="0"`
-on the same 8 ranges; no other range in the pairs has the attribute. So
-the field is located, but 0 does not show its scale. The scale rests on
-a sample and its print PDF:
+**`KerningValue` (0x1B13).** The value 1e8 means no manual kerning.
+IDML writes it `KerningValue="1e+11"` (1e8 × 1000, the scale of other
+values) on ranges and character styles:
+
+- In every one of the 1,252 trustworthy pairs, the number of live story
+  run records (chunk 0x262 of class 0xCA17) that store 1e8 equals the
+  number of reference `CharacterStyleRange` elements with
+  `KerningValue="1e+11"`: 144 in 3 documents, 0 elsewhere.
+- Of the 1,796 style objects (class 0x205, chunk 0x23F) that store 1e8,
+  1,767 are root paragraph styles (one or two per file) and 29 are
+  character styles. The reference has `KerningValue="1e+11"` on exactly
+  those 29 character styles (21 documents).
+- The preferences object (class 0x2202) stores 1e8 in 1,251 files. The
+  schema allows no `KerningValue` on paragraph styles or `TextDefault`,
+  so the root paragraph styles and text defaults get none.
+- The corpus IDMLs have 329 `KerningValue="1e+11"` (169 ranges, 160
+  character styles), always with that literal text.
+
+IDML writes every other value as a whole number. Every `KerningValue` in
+every corpus IDML is an integer or `1e+11` (6,798 integers, none with a
+fraction). Stored values ×1000 such as −231.8, 26.9, 58.6, 59.9,
+68.0066 and −29.9945 are −232, 27, 59, 60, 68 and −30 in the reference
+(18 ranges of the trustworthy pairs), each the nearest integer. Some runs
+store a tiny negative number (about −7e−18); IDML writes `0` (10 ranges
+in 4 documents), not `-0`. No sample stores a value exactly halfway
+between two integers, so how halves round is open; the converter rounds
+them away from zero.
+
+The scale rests on a sample and its print PDF:
 
 - Runs of one character set 0x1B13 to −0.1, −0.06, −0.12 and 0. In the
   PDF, the gap between that character and the next (start of the next
@@ -847,6 +870,34 @@ a sample and its print PDF:
 - The schema allows `KerningValue` on character styles and ranges, not
   on paragraph styles, so the converter leaves it out of paragraph
   styles (public samples without IDML have it there).
+
+**Manual kerning method.** When a story run stores both 0x1B07 and
+0x1B13, and 0x1B13 is not 1e8, IDML writes `KerningMethod="$ID/Manual"`
+if the written `KerningValue` is not 0 and `KerningMethod="$ID/None"` if
+it is 0, whatever method code is stored:
+
+- Trustworthy pairs: 37 ranges in 7 documents are `$ID/Manual` (stored
+  79875 Optical in 34, 15972 Metrics in 3; values from −1000 to 200). 9
+  ranges in 2 documents with value 0 are `$ID/None` (stored Optical in
+  8, Metrics in 1). Runs that store a method and 1e8 keep the stored
+  method (6 ranges, `$ID/Optical`). No range contradicts the rule. A
+  stale pair adds 36 `$ID/Manual` ranges and 3 `$ID/None` ranges (those
+  3 store code 0x221 and value 0).
+- Runs that store a value but no method get no `KerningMethod` in IDML
+  (728 ranges with a non-zero value, 141 with 0).
+- The corpus IDMLs have `$ID/Manual` 92 times, only on
+  `CharacterStyleRange`, never on a style. No style stores a method
+  together with a value other than 1e8, so the converter keeps the
+  stored method on styles.
+- No sample has a run with code 0x221 and a non-zero value; the rule
+  gives `$ID/Manual` there.
+
+Code 0x221 is `$ID/None`. In the trustworthy pairs it occurs 21 times in
+7 documents (style lists and text defaults), and each document's count
+equals its number of reference styles and defaults with
+`KerningMethod="$ID/None"` (11 paragraph styles, 8 character styles, 2
+`TextDefault`). Over all little-endian corpus files, 0x221 is the only
+0x1B07 code not in the table (26 files in style lists, 12 in runs).
 
 **`StartParagraph` (0x1B37).** In every pair the root style has 0 and
 IDML writes `StartParagraph="Anywhere"`; no pair has another value. Code
@@ -868,9 +919,9 @@ style that contradicts them.
 The new codes of the table were found by aligning INDD runs with IDML
 ranges at the same offset over 17,914 trustworthy stories and styles by
 name over all 654 pairs; no run or style contradicts them, and every
-value converted with a new code equals the IDML. (`KerningMethod` 79875
-is `$ID/Manual` in IDML for 19 runs of 3 documents; that is not
-decoded.)
+value converted with a new code equals the IDML. A run with manual
+kerning has `KerningMethod="$ID/Manual"` whatever code it stores (manual
+kerning method, above).
 
 **Percentages.** IDML writes a fraction attribute (`HorizontalScale`,
 `VerticalScale`, `AutoLeading`, the word and letter spacing and glyph
@@ -920,7 +971,7 @@ not listed leaves the attribute out.
 | 0x1B95 | `UnderlineType` (Properties) | stroke type | 541 (46) |
 | 0x1B72 | `RuleBelowType` (Properties) | stroke type | 505 (10) |
 | 0x1B9D | `StrikeThroughType` (Properties) | stroke type | 499 (4) |
-| 0x1A40B | `NumberingFormat` (Properties, string) | u32: 0x1A477 `1, 2, 3, 4...`, 0x1A479 `i, ii, iii, iv...`, 0x1A47A `A, B, C, D...`, 0x1A47B `a, b, c, d...`, 0x1A497 `01,02,03...`, 0 `None` | 531 (36) |
+| 0x1A40B | `NumberingFormat` (Properties, string) | u32: 0x1A477 `1, 2, 3, 4...`, 0x1A479 `i, ii, iii, iv...`, 0x1A47A `A, B, C, D...`, 0x1A47B `a, b, c, d...`, 0x1A497 `01,02,03...`, 0x1A478 `I, II, III, IV...`, 0x1A4A7 `$ID/Circle Numbering`, 0 `None`; the last two: below | 531 (36) |
 | 0x1B73 | `BalanceRaggedLines` (Properties, enumeration) | 0 `NoBalancing`, 1 `VeeShape` | 528 (33) |
 | 0x1A422 | `NumberingAlignment` | 0 `LeftAlign`, 2 `RightAlign` | 527 (32) |
 | 0x1A421 | `BulletsAlignment` | 0 `LeftAlign`, 1 `CenterAlign`, 2 `RightAlign` | 505 (10) |
@@ -989,6 +1040,19 @@ not listed leaves the attribute out.
 | 0x1BDA | `ParagraphShadingRightOffset` | num | 406 (26) |
 | 0x1BD5 | `ParagraphShadingWidth` | 0 `ColumnWidth`, 1 `TextWidth` | 386 (6) |
 | 0x1BD7 | `ParagraphShadingClipToFrame` | bool | 388 (8) |
+
+**`NumberingFormat` codes from paragraph runs.** Two codes occur in
+story paragraph runs of the trustworthy pairs, each run matching a
+reference `ParagraphStyleRange` with that value and no other:
+
+- 0x1A478 is `I, II, III, IV...` (between 0x1A477 `1, 2, 3, 4...` and
+  0x1A479 `i, ii, iii, iv...`): 2 runs in one document, the only 2
+  ranges with that value in the corpus IDMLs.
+- 0x1A4A7 is `$ID/Circle Numbering`: one run in each of 10 documents;
+  a stale pair adds an eleventh. The corpus IDMLs have 11 such values.
+
+Other codes occur only in files without IDML and are not decoded:
+0xFFFFFFFF (11 files, styles), 0x1A473 (2), 0x1A472 (1), 0x1A4AA (1).
 
 **Found in the corpus of 2026-10.** These IDs are in every text default
 list (chunk 0x23F of the preferences, 1,460 of 1,460 files, no

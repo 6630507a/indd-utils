@@ -762,6 +762,7 @@ differ. Nothing stored tells the exceptions apart. Counts are over the
 | `DocumentPreference` | `SpreadHiddenVisibility` | `false` | 20.0 on | 75 of 76 |
 | `Document` | `AppliedMathMLFontSize` | `10` | 20.0 on | 75 of 76 (1 `16`, DOM 20.2) |
 | `Article` | `ArticleExportStatus` | `true` | all | 31 of 31 articles in 13 pairs; no other value in 3,557 corpus IDML files |
+| `MatchParagraphStylePreference` (running header) whose settings parse with *c* 0 or 1 | `DeleteEndPunctuation` | `false` | all | 1,288 of 1,288; no other value in 3,568 corpus IDML elements (`text-variables.md`, settings) |
 | `Language` named Korean, Japanese or Hebrew, without chunk 0x2D26 | `SingleQuotes`, `DoubleQuotes` | `''`, `""` | all | Korean 448 of 455, Japanese 128 of 130, Hebrew 65 of 66 languages |
 
 No reference before DOM 20.0 has `SpreadHiddenVisibility` or
