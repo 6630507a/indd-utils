@@ -72,14 +72,58 @@ impl Writer<'_> {
         self.warnings.borrow_mut().push(msg);
     }
 
+    /// UIDs a `TimingTarget` can refer to: the page items written and the
+    /// behaviours of the buttons among them (`form_behaviors`).
+    fn timing_targets(&self) -> &std::collections::HashSet<u32> {
+        self.timing_targets.get_or_init(|| {
+            let mut out = std::collections::HashSet::new();
+            for item in self.written_page_items() {
+                out.insert(item.uid);
+                if let ItemKind::Form(f) = &item.kind
+                    && f.kind == FormKind::Button
+                {
+                    out.extend(f.behaviors.iter().map(|b| b.uid));
+                }
+            }
+            out
+        })
+    }
+
     /// The `TimingSetting` of a spread or button whose `Self` is `owner`;
-    /// nothing without timing lists.
+    /// nothing without timing lists. A target not written in the package
+    /// is left out, and so are the groups and lists left empty.
     pub(super) fn timing_setting(&self, x: &mut Xml, owner: &str, lists: &[TimingList]) {
-        if lists.is_empty() {
+        let written = self.timing_targets();
+        // Per list: (index, list, kept groups (index, group, kept
+        // targets)). `Placement` numbers the kept targets.
+        let mut kept = Vec::new();
+        for (i, l) in lists.iter().enumerate() {
+            let mut groups = Vec::new();
+            for (j, g) in l.groups.iter().enumerate() {
+                let mut targets = Vec::new();
+                for t in &g.targets {
+                    if written.contains(&t.uid) {
+                        targets.push(t);
+                    } else {
+                        self.warn(format!(
+                            "timing target {} of \"{owner}\" is not written; left out",
+                            t.uid
+                        ));
+                    }
+                }
+                if !targets.is_empty() {
+                    groups.push((j, g, targets));
+                }
+            }
+            if !groups.is_empty() {
+                kept.push((i, l, groups));
+            }
+        }
+        if kept.is_empty() {
             return;
         }
         x.start("TimingSetting");
-        for (i, l) in lists.iter().enumerate() {
+        for (i, l, groups) in kept {
             let list = format!("{owner}TimingSetting1TimingList{i}");
             x.start("TimingList").attr("Self", &list);
             match code(&TRIGGERS, l.trigger) {
@@ -91,7 +135,7 @@ impl Writer<'_> {
                     l.trigger
                 )),
             }
-            for (j, g) in l.groups.iter().enumerate() {
+            for (j, g, targets) in groups {
                 let group = format!("{list}TimingGroup{j}");
                 x.start("TimingGroup").attr("Self", &group);
                 if (1..=100).contains(&g.plays) {
@@ -100,7 +144,7 @@ impl Writer<'_> {
                     self.warn(format!("{group}: Plays {} left out", g.plays));
                 }
                 x.attr("PlaysLoop", "false");
-                for (k, t) in g.targets.iter().enumerate() {
+                for (k, t) in targets.into_iter().enumerate() {
                     let target = format!("{group}i{:x}", t.uid);
                     x.start("TimingTarget")
                         .attr("Self", &target)
@@ -231,9 +275,49 @@ mod tests {
     use crate::model::{TimingGroup, TimingTarget};
 
     #[test]
+    fn leaves_out_timing_targets_not_written() {
+        let doc = Document::default();
+        let w = Writer::for_test(&doc);
+        w.timing_targets.set([0x10].into()).unwrap();
+        let target = |uid| TimingTarget {
+            uid,
+            role: 132356,
+            action: 132353,
+            delay: 0.0,
+        };
+        let group = |uids: &[u32]| TimingGroup {
+            plays: 1,
+            targets: uids.iter().map(|&u| target(u)).collect(),
+        };
+        let list = |groups| TimingList { trigger: 1, groups };
+        let mut x = Xml::new();
+        w.timing_setting(&mut x, "uff", &[list(vec![group(&[0x20])])]);
+        assert!(!x.finish().contains("Timing"));
+        let mut x = Xml::new();
+        w.timing_setting(
+            &mut x,
+            "uff",
+            &[
+                list(vec![group(&[0x20])]),
+                list(vec![group(&[0x20]), group(&[0x20, 0x10])]),
+            ],
+        );
+        let out: String = x.finish().lines().map(str::trim).collect();
+        assert!(out.ends_with(
+            "<TimingSetting><TimingList Self=\"uffTimingSetting1TimingList1\" TriggerEvent=\"OnPageLoad\">\
+             <TimingGroup Self=\"uffTimingSetting1TimingList1TimingGroup1\" Plays=\"1\" PlaysLoop=\"false\">\
+             <TimingTarget Self=\"uffTimingSetting1TimingList1TimingGroup1i10\" DynamicTarget=\"u10\" \
+             DelaySeconds=\"0\" ReverseAnimation=\"false\" TargetRole=\"132356\" TargetAction=\"132353\" \
+             Placement=\"0\" /></TimingGroup></TimingList></TimingSetting>"
+        ));
+        assert_eq!(w.warnings.borrow().len(), 4);
+    }
+
+    #[test]
     fn writes_timing_and_animation() {
         let doc = Document::default();
         let w = Writer::for_test(&doc);
+        w.timing_targets.set([0xFE, 0x608, 0x119].into()).unwrap();
         let lists = [TimingList {
             trigger: 1,
             groups: vec![

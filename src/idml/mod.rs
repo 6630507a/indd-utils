@@ -81,6 +81,8 @@ struct Writer<'a> {
     /// The anchored object settings of the anchored items being written,
     /// innermost last: items inside them carry the settings too.
     anchors: std::cell::RefCell<Vec<crate::model::AnchorSettings>>,
+    /// UIDs a `TimingTarget` can refer to (`timing_targets`).
+    timing_targets: std::cell::OnceCell<std::collections::HashSet<u32>>,
 }
 
 /// Attributes observed on an element path (`values::element_attrs`).
@@ -336,6 +338,7 @@ pub fn write(doc: &Document, name: &str, out: impl std::io::Write) -> std::io::R
         page_sections: page_sections(doc),
         topics: designmap::topic_refs(doc),
         anchors: Default::default(),
+        timing_targets: Default::default(),
     };
     let mut files: BTreeMap<String, String> = BTreeMap::new();
     files.insert(
@@ -417,6 +420,7 @@ impl<'a> Writer<'a> {
             page_sections: Vec::new(),
             topics: Default::default(),
             anchors: Default::default(),
+            timing_targets: Default::default(),
         }
     }
 }

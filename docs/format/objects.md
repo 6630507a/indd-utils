@@ -2448,6 +2448,12 @@ Roles by target class: 132353 button behaviours (classes 0x1562C,
 132355 spline items, groups and multi-state objects (100), 132356
 sounds (7). The stored value is written as is.
 
+The converter leaves out a target whose element it does not write
+(`Movie` and `Sound` elements, unread behaviours: 7 sound and 3 movie
+targets of 163), with a warning, and numbers `Placement` over the
+targets kept. A group or list left empty is left out too: no sample has
+an empty one (159 groups, 96 lists).
+
 Example, a spread with one list, one group and one target:
 `01 00 00 00 | 01 00 00 00 01 00 00 00 | 01 00 00 00 | 63 04 00 00 03 05 02 00 01 05 02 00 00 00 00 00 | 00 00 00 00 00 00 00 00 | 01 00 00 00 00 00`.
 

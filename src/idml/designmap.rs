@@ -953,11 +953,16 @@ impl Writer<'_> {
             .collect()
     }
 
-    /// UIDs of the page items written: on spreads and master spreads, in
-    /// groups, anchored in stories and in graphic cells.
+    /// UIDs of the page items written.
     pub(super) fn written_items(&self) -> std::collections::HashSet<u32> {
+        self.written_page_items().iter().map(|i| i.uid).collect()
+    }
+
+    /// The page items written: on spreads and master spreads, in groups,
+    /// anchored in stories and in graphic cells.
+    pub(super) fn written_page_items(&self) -> Vec<&PageItem> {
         let doc = self.doc;
-        let mut out = std::collections::HashSet::new();
+        let mut out = Vec::new();
         let mut stack: Vec<&PageItem> = doc
             .spreads
             .iter()
@@ -977,7 +982,7 @@ impl Writer<'_> {
             )
             .collect();
         while let Some(item) = stack.pop() {
-            out.insert(item.uid);
+            out.push(item);
             stack.extend(&item.children);
         }
         out
