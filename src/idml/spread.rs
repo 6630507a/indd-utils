@@ -1200,8 +1200,7 @@ impl Writer<'_> {
             ItemKind::Form(_) => None,
             _ => {
                 let applied = item.object_style.and_then(|u| self.style_values(u));
-                if !self.saved_by((21, 4)) && !self.puts_ink(item, applied.as_deref(), overprint)
-                {
+                if !self.saved_by((21, 4)) && !self.puts_ink(item, applied.as_deref(), overprint) {
                     return Some(None);
                 }
                 match item.attrs.get(overprint.5).and_then(Value::as_u32) {
