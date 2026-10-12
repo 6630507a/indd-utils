@@ -1314,7 +1314,9 @@ impl Writer<'_> {
                         _ => {}
                     }
                 }
-                if same {
+                // Every corpus sample is `false`; no field is known for it
+                // (text-variables.md, running headers).
+                if same || v.settings.as_ref().is_some_and(|st| st.c <= 1) {
                     x.attr("DeleteEndPunctuation", "false");
                 }
                 x.end();
@@ -1537,4 +1539,41 @@ fn toc_separator(s: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::variable::Settings;
+
+    #[test]
+    fn writes_running_header_punctuation() {
+        let doc = Document::default();
+        let w = Writer::for_test(&doc);
+        let header = |c, as_in_samples| {
+            let v = TextVariable {
+                uid: 0x89,
+                name: "Running Header".into(),
+                kind: 0xCAAA,
+                text: String::new(),
+                style: None,
+                as_in_samples,
+                settings: Some(Settings {
+                    a: 0xCAC9,
+                    b: 0,
+                    c,
+                    before: String::new(),
+                    after: String::new(),
+                }),
+            };
+            let mut x = Xml::new();
+            w.variable_preference(&mut x, &v);
+            x.finish()
+        };
+        let out = header(1, false);
+        assert!(out.contains("ChangeCase=\"None\""));
+        assert!(out.contains("DeleteEndPunctuation=\"false\""));
+        // An unknown search strategy may be a flag for it.
+        assert!(!header(0x40, false).contains("DeleteEndPunctuation"));
+    }
 }

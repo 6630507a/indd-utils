@@ -286,7 +286,7 @@ impl Writer<'_> {
 
     /// The start tag of a character range for `r`.
     pub(super) fn csr_start(&self, x: &mut Xml, r: &TextRun) {
-        let (plain, props) = self.text_attrs(&r.character_attrs);
+        let (plain, props) = self.run_attrs(&r.character_attrs);
         x.start("CharacterStyleRange").attr(
             "AppliedCharacterStyle",
             self.style_ref(r.character_style, false),
@@ -508,7 +508,7 @@ impl Writer<'_> {
                 outer.push(k);
             }
             let para = para_of(runs[i]);
-            let (plain, props) = self.text_attrs(para.1);
+            let (plain, props) = self.run_attrs(para.1);
             x.start("ParagraphStyleRange")
                 .attr("AppliedParagraphStyle", self.style_ref(para.0, true));
             for (k, v) in &plain {

@@ -298,8 +298,8 @@ pub(super) const BUILTIN_STROKE_STYLES: &[&str] = &[
     "Solid",
 ];
 
-/// Value of the kerning attribute (0x1B13) in every root paragraph style;
-/// IDML writes no `KerningValue` for it.
+/// Value of the kerning attribute (0x1B13) for no manual kerning; IDML
+/// writes it `1e+11`. Every root paragraph style stores it.
 pub(super) const KERNING_NONE: f64 = 1e8;
 
 /// Text attributes: ID, IDML name, kind, written in `<Properties>`.
@@ -317,6 +317,7 @@ pub(super) const TEXT_ATTRS: &[(u32, &str, Kind, bool)] = &[
             (15972, "$ID/Metrics"),
             (79875, "$ID/Optical"),
             (0x3E65, "$ID/Metrics - Roman Only"),
+            (0x221, "$ID/None"),
         ]),
         false,
     ),
@@ -644,10 +645,12 @@ pub(super) const TEXT_ATTRS: &[(u32, &str, Kind, bool)] = &[
         "NumberingFormat",
         Kind::EnumString(&[
             (0x1A477, "1, 2, 3, 4..."),
+            (0x1A478, "I, II, III, IV..."),
             (0x1A479, "i, ii, iii, iv..."),
             (0x1A47A, "A, B, C, D..."),
             (0x1A47B, "a, b, c, d..."),
             (0x1A497, "01,02,03..."),
+            (0x1A4A7, "$ID/Circle Numbering"),
             (0, "None"),
         ]),
         true,
@@ -1755,10 +1758,42 @@ pub(super) fn delimiter_field(d: &Delimiter) -> Field {
     }
 }
 
+/// Sets `KerningMethod` in `plain` for a run list with manual kerning; see
+/// [`Writer::run_attrs`].
+fn manual_kerning(attrs: &Attrs, plain: &mut Vec<(&'static str, String)>) {
+    if attrs.get(0x1B07).is_none()
+        || attrs.get(0x1B13).and_then(Value::as_f64) == Some(KERNING_NONE)
+    {
+        return;
+    }
+    let Some(i) = plain.iter().position(|(n, _)| *n == "KerningValue") else {
+        return;
+    };
+    let method = if plain[i].1 == "0" {
+        "$ID/None"
+    } else {
+        "$ID/Manual"
+    };
+    match plain.iter_mut().find(|(n, _)| *n == "KerningMethod") {
+        Some(m) => m.1 = method.into(),
+        None => plain.insert(i, ("KerningMethod", method.into())),
+    }
+}
+
 impl Writer<'_> {
     /// IDML attributes and properties for a text attribute list.
     pub(super) fn text_attrs(&self, attrs: &Attrs) -> (Vec<(&'static str, String)>, Vec<Property>) {
         self.text_attrs_of(attrs, false)
+    }
+
+    /// Like [`Writer::text_attrs`], for the attributes of a story run: a
+    /// run that stores both a kerning method and a manual kerning value
+    /// has the method `$ID/Manual`, or `$ID/None` for a value of 0,
+    /// whatever method is stored (`docs/format/attributes.md`, kerning).
+    pub(super) fn run_attrs(&self, attrs: &Attrs) -> (Vec<(&'static str, String)>, Vec<Property>) {
+        let (mut plain, props) = self.text_attrs(attrs);
+        manual_kerning(attrs, &mut plain);
+        (plain, props)
     }
 
     /// Like [`Writer::text_attrs`]; a character style (`character_style`)
@@ -2199,6 +2234,42 @@ mod tests {
             (0x1BDE, Value::Enum(2)),
         ]));
         assert!(plain.is_empty());
+    }
+
+    #[test]
+    fn writes_manual_kerning_of_runs() {
+        let doc = Document::default();
+        let w = Writer::for_test(&doc);
+        let run = |kerning: f64| {
+            let mut a = Attrs::default();
+            a.values = vec![
+                (0x1B07, Value::Ref(79875)),
+                (0x1B13, Value::Double(kerning)),
+            ];
+            w.run_attrs(&a).0
+        };
+        let get = |plain: &[(&str, String)], name: &str| {
+            plain
+                .iter()
+                .find(|(n, _)| *n == name)
+                .map(|(_, v)| v.clone())
+        };
+        let p = run(-0.2318);
+        assert_eq!(get(&p, "KerningMethod").as_deref(), Some("$ID/Manual"));
+        assert_eq!(get(&p, "KerningValue").as_deref(), Some("-232"));
+        let p = run(-7e-18);
+        assert_eq!(get(&p, "KerningMethod").as_deref(), Some("$ID/None"));
+        assert_eq!(get(&p, "KerningValue").as_deref(), Some("0"));
+        // No manual kerning keeps the stored method.
+        let p = run(KERNING_NONE);
+        assert_eq!(get(&p, "KerningMethod").as_deref(), Some("$ID/Optical"));
+        assert_eq!(get(&p, "KerningValue").as_deref(), Some("1e+11"));
+        // Styles keep the stored method.
+        let mut a = Attrs::default();
+        a.values = vec![(0x1B07, Value::Ref(79875)), (0x1B13, Value::Double(0.05))];
+        let p = w.text_attrs(&a).0;
+        assert_eq!(get(&p, "KerningMethod").as_deref(), Some("$ID/Optical"));
+        assert_eq!(get(&p, "KerningValue").as_deref(), Some("50"));
     }
 
     #[test]

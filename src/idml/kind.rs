@@ -24,8 +24,9 @@ pub(super) enum Kind {
     Percent,
     /// Multiplied by the factor when written.
     Scale(f64),
-    /// Manual kerning in ems, written in thousandths of an em; 1e8 (the
-    /// root style's value) is left out.
+    /// Manual kerning in ems, written in thousandths of an em rounded to
+    /// a whole number (−0 as 0); 1e8, no manual kerning, is written
+    /// `1e+11`.
     Kerning,
     /// An integer, written as such.
     Integer,
@@ -172,10 +173,14 @@ impl Writer<'_> {
                 .map(|f| text("unit", num(f))),
             Kind::Percent => v.as_f64().map(|f| text("unit", num(f * 100.0))),
             Kind::Scale(k) => v.as_f64().map(|f| text("unit", num(round(f * k)))),
-            Kind::Kerning => v
-                .as_f64()
-                .filter(|&f| f != KERNING_NONE)
-                .map(|f| text("unit", num(round(f * 1000.0)))),
+            Kind::Kerning => v.as_f64().map(|f| {
+                if f == KERNING_NONE {
+                    text("unit", "1e+11".into())
+                } else {
+                    // Adding 0 turns −0 into 0.
+                    text("unit", num((f * 1000.0).round() + 0.0))
+                }
+            }),
             Kind::Integer => v.as_u32().map(|u| text("long", u.to_string())),
             Kind::EdgeTint => {
                 number().map(|f| text("unit", num(if f == -1.0 { 100.0 } else { f })))
