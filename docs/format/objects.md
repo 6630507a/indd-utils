@@ -2773,9 +2773,14 @@ whose IDML style has the same name.
 |---|---|---|
 | 0 (5,272 styles) | `0 0` | `0 0 0` |
 | 0xC000*xx*, *xx* a digit `0`–`9` | *m0* + 256 × *m1* and the code below | `0 0 0` |
-| 0x8000*xx* (4 styles, one file) | `0 0` | not written (`256 49 1` and similar in IDML) |
+| 0x8000*xx* | `0 0` | *m0* + 256 × *m1*, *xx*, then 1 |
 
-The 103 styles with a key other than 0 are in 38 files.
+The 103 styles with a key other than 0 are in 38 files. With key
+0x8000*xx*, *xx* is a character code: over all pairs, the 21 styles of
+11 trustworthy pairs with such a key and DOM 15 or later (codes 49 to 52,
+66 and 73; modifiers 1, 17, 256 and 257) have this
+`ExtendedKeyboardShortcut` in IDML, for example `256 49 1` for *m0* 0,
+*m1* 1 and code 0x31.
 
 The key code follows the platform of the last session of the save
 history (the second u16 of its record), not the style: with platform 0

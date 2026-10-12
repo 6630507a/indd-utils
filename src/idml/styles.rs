@@ -21,6 +21,7 @@ pub(super) fn style_shortcut(
         return (Some("0 0".into()), Some("0 0 0".into()));
     }
     let ch = key & 0xFFFF;
+    let mods = u32::from(low) + 256 * u32::from(high);
     match key >> 16 {
         0xC000 if (0x30..=0x39).contains(&ch) => {
             let d = ch - 0x30;
@@ -31,10 +32,9 @@ pub(super) fn style_shortcut(
                 Some(0) => Some(82 + d + u32::from(d >= 8)),
                 _ => None,
             };
-            let mods = u32::from(low) + 256 * u32::from(high);
             (code.map(|c| format!("{mods} {c}")), Some("0 0 0".into()))
         }
-        0x8000 => (Some("0 0".into()), None),
+        0x8000 => (Some("0 0".into()), Some(format!("{mods} {ch} 1"))),
         _ => (None, None),
     }
 }
