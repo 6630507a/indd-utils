@@ -98,7 +98,7 @@ pub(super) enum Kind {
     CjkSet,
     /// A list of tab stops (`TabList`).
     TabList,
-    /// A list of nested styles (`AllNestedStyles`).
+    /// A list of nested styles (`AllNestedStyles`); left out when empty.
     NestedStyles,
     /// A list of GREP styles (`AllGREPStyles`); left out when empty.
     GrepStyles,
@@ -106,6 +106,9 @@ pub(super) enum Kind {
     LineStyles,
     /// A bullet character (`BulletChar`).
     BulletChar,
+    /// A numbering restart policy (`NumberingRestartPolicies`): three
+    /// words, of which only the observed combinations are known.
+    RestartPolicies,
 }
 
 impl Kind {
@@ -114,7 +117,12 @@ impl Kind {
     pub(super) fn is_code(self) -> bool {
         matches!(
             self,
-            Kind::Enum(_) | Kind::EnumString(_) | Kind::Builtin(..) | Kind::StrokeType | Kind::Bool
+            Kind::Enum(_)
+                | Kind::EnumString(_)
+                | Kind::Builtin(..)
+                | Kind::StrokeType
+                | Kind::Bool
+                | Kind::RestartPolicies
         )
     }
 }
@@ -351,7 +359,7 @@ impl Writer<'_> {
                 Value::StyleList {
                     items: Some(StyleItems::Nested(n)),
                     ..
-                } => Some(("list", PropValue::List(self.nested_styles(n)))),
+                } if !n.is_empty() => Some(("list", PropValue::List(self.nested_styles(n)))),
                 _ => None,
             },
             Kind::GrepStyles => match v {
@@ -370,6 +378,10 @@ impl Writer<'_> {
             },
             Kind::BulletChar => match *v {
                 Value::BulletChar { kind, value } => bullet_char(kind, value).map(|a| ("", a)),
+                _ => None,
+            },
+            Kind::RestartPolicies => match *v {
+                Value::Words3(w) => restart_policies(w).map(|a| ("", a)),
                 _ => None,
             },
         }

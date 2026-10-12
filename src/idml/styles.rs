@@ -63,14 +63,13 @@ pub(super) fn group_paths(doc: &Document) -> std::collections::HashMap<u32, Vec<
     out
 }
 
-/// Leaves out the list properties that IDML does not write on the root
-/// paragraph style and on `TextDefault`: an empty `AllNestedStyles`, and
-/// an empty `TabList` before DOM 8 (attributes.md, root styles and text
-/// defaults).
+/// Leaves out the list property that IDML does not write on the root
+/// paragraph style and on `TextDefault`: an empty `TabList` before DOM 8
+/// (attributes.md, root styles and text defaults).
 pub(super) fn root_lists(props: &mut Vec<Property>, major: u32) {
     props.retain(|(n, _, v)| {
         let empty = matches!(v, PropValue::List(l) if l.is_empty());
-        !(empty && (*n == "AllNestedStyles" || (*n == "TabList" && major < 8)))
+        !(empty && *n == "TabList" && major < 8)
     });
 }
 

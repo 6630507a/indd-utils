@@ -434,13 +434,11 @@ mod tests {
     fn gates_values_by_version() {
         let old = root_style("ParagraphStyle", 7);
         let new = root_style("ParagraphStyle", 21);
-        assert_eq!(old.attr("PageNumberType"), Some("AutoPageNumber"));
+        assert_eq!(old.attr("Imported"), Some("false"));
         assert!(old.attr("EmitCss").is_none());
         assert_eq!(new.attr("EmitCss"), Some("true"));
-        assert!(old.attr("ParagraphBorderOverprint").is_none());
-        assert_eq!(new.attr("ParagraphBorderOverprint"), Some("false"));
-        let props = new.child("Properties").unwrap();
-        assert!(props.child("RuleBelowGapColor").is_some());
+        assert!(old.attr("ExtendedKeyboardShortcut").is_none());
+        assert_eq!(new.attr("ExtendedKeyboardShortcut"), Some("0 0 0"));
         let os = root_style("ObjectStyle", 21);
         assert!(
             os.child("TextFramePreference")

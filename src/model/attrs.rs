@@ -36,6 +36,8 @@ pub enum Value {
     RefOrCode(u32, u32),
     /// Two u32, as in a cell edge stroke type: a code and 0.
     Words(u32, u32),
+    /// Three u32, as in a numbering restart policy.
+    Words3([u32; 3]),
     /// A flag byte, then an in-object string.
     String(String),
     /// u32 length in characters, then text segments.
@@ -209,10 +211,12 @@ impl Value {
 
     /// The code `indd audit` reports for a value without an IDML value:
     /// its integer, the code of a reference-or-code or the first of two
-    /// words.
+    /// or three words.
     pub fn code(&self) -> Option<u32> {
         match *self {
-            Value::RefOrCode(_, code) | Value::Words(code, _) => Some(code),
+            Value::RefOrCode(_, code) | Value::Words(code, _) | Value::Words3([code, ..]) => {
+                Some(code)
+            }
             _ => self.as_u32(),
         }
     }
@@ -365,6 +369,8 @@ enum Layout {
     BulletChar,
     /// Two u32.
     Words,
+    /// Three u32.
+    Words3,
     /// u32 reference (0 for a built-in) and u32 code.
     RefOrCode,
     /// u16 length, that many bytes of a glyph name, u32 glyph ID.
@@ -388,6 +394,7 @@ fn text_layout(id: u32) -> Option<Layout> {
         0x1BBA => Layout::GrepStyles,
         0x1BBB => Layout::LineStyles,
         0x1A406 => Layout::BulletChar,
+        0x1A41E => Layout::Words3,
         0x1B5E => Layout::Glyph,
         0x42AE => Layout::Features,
         // Stroke types of cell edges, table borders, rows and columns
@@ -445,6 +452,10 @@ fn decode_text(enc: Encoding, id: u32, t: u32, data: &[u8]) -> Value {
         .ok(),
         Layout::BulletChar => None,
         Layout::Words => (|| Ok::<_, Error>(Value::Words(c.u32()?, c.u32()?)))().ok(),
+        Layout::Words3 if data.len() == 12 => {
+            (|| Ok::<_, Error>(Value::Words3([c.u32()?, c.u32()?, c.u32()?])))().ok()
+        }
+        Layout::Words3 => None,
         Layout::RefOrCode if data.len() == 8 => {
             (|| Ok::<_, Error>(Value::RefOrCode(c.u32()?, c.u32()?)))().ok()
         }

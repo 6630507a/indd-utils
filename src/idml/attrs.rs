@@ -1045,6 +1045,12 @@ pub(super) const TEXT_ATTRS: &[(u32, &str, Kind, bool)] = &[
     (0x42B3, "RubyAutoTcyAutoScale", Kind::Bool, false),
     (0x1A407, "NumberingStartAt", Kind::Number, false),
     (
+        0x1A41E,
+        "NumberingRestartPolicies",
+        Kind::RestartPolicies,
+        true,
+    ),
+    (
         0x1DF05,
         "ParagraphBorderStrokeEndJoin",
         Kind::Enum(&[(0, "MiterEndJoin")]),
@@ -1091,7 +1097,7 @@ pub(super) const TEXT_ATTRS: &[(u32, &str, Kind, bool)] = &[
     (
         0x50F40,
         "KeyboardDirection",
-        Kind::Enum(&[(0, "DefaultDirection")]),
+        Kind::Enum(&[(0, "DefaultDirection"), (1, "LeftToRightDirection")]),
         false,
     ),
 ];
@@ -1717,6 +1723,21 @@ pub(super) fn bullet_char(kind: u32, value: u32) -> Option<PropValue> {
     ]))
 }
 
+/// `NumberingRestartPolicies` attributes of the two stored word triples
+/// seen in the corpus. See `docs/format/attributes.md`.
+pub(super) fn restart_policies(words: [u32; 3]) -> Option<PropValue> {
+    let (policy, level) = match words {
+        [0, 0, 0] => ("AnyPreviousLevel", "0"),
+        [1, 1, 1] => ("AfterSpecificLevel", "1"),
+        _ => return None,
+    };
+    Some(PropValue::Attributes(vec![
+        ("RestartPolicy", policy.into()),
+        ("LowerLevel", level.into()),
+        ("UpperLevel", level.into()),
+    ]))
+}
+
 /// The IDML field of a nested style delimiter.
 pub(super) fn delimiter_field(d: &Delimiter) -> Field {
     let enumeration = |v: &str| ("Delimiter", "enumeration", v.to_string());
@@ -2279,12 +2300,17 @@ mod tests {
     fn writes_attributes_placed_by_order() {
         // A style list: u32 ID, u16 size, then u16 value count, u32 type,
         // u16 length and the value.
-        let mut d = 4u16.to_le_bytes().to_vec();
+        let words: Vec<u8> = [1u32; 3].iter().flat_map(|w| w.to_le_bytes()).collect();
+        let mut d = 7u16.to_le_bytes().to_vec();
         for (id, ty, value) in [
             (0x4241u32, 0x1BB1u32, (-1f64).to_le_bytes().to_vec()),
             (0x4242, 0x1BBB, 0xFFFFu16.to_le_bytes().to_vec()),
             (0x1B49, 0x1B22, [0u8; 16].to_vec()),
             (0x1B7B, 0x1B05, 0u32.to_le_bytes().to_vec()),
+            (0x50F40, 0x50F2E, 1u32.to_le_bytes().to_vec()),
+            (0x1A41E, 0x1A4A6, words),
+            // An empty list of nested styles.
+            (0x1B75, 0x1B75, 0u32.to_le_bytes().to_vec()),
         ] {
             d.extend(id.to_le_bytes());
             d.extend((8 + value.len() as u16).to_le_bytes());
@@ -2302,9 +2328,13 @@ mod tests {
         assert!(plain.contains(&("RubyTint", "-1".into())));
         assert!(plain.contains(&("RubyOverprintFill", "Auto".into())));
         assert!(plain.contains(&("GradientStrokeStart", "0 0".into())));
-        assert_eq!(props.len(), 1);
-        assert_eq!((props[0].0, props[0].1), ("RuleBelowGapColor", "string"));
+        assert!(plain.contains(&("KeyboardDirection", "LeftToRightDirection".into())));
+        let names: Vec<&str> = props.iter().map(|p| p.0).collect();
+        assert_eq!(names, ["RuleBelowGapColor", "NumberingRestartPolicies"]);
+        assert_eq!(props[0].1, "string");
         assert!(matches!(&props[0].2, PropValue::Text(t) if t == "Text Color"));
+        assert!(matches!(&props[1].2, PropValue::Attributes(a)
+            if a[0] == ("RestartPolicy", "AfterSpecificLevel".into()) && a[2].1 == "1"));
     }
 
     #[test]

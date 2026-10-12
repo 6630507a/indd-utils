@@ -1254,7 +1254,7 @@ style and others) and character or paragraph ranges whose stored value
 the converter writes equal to the reference IDML's, and those it writes
 with another value or where the IDML has none (Differ). Every value of
 these attributes that the IDML has on a matched style or range is
-written, except `KeyboardDirection` on ranges (below). Encodings: bool =
+written. Encodings: bool =
 u16, 0 `false`, 1 `true`; pct = f64 fraction, written ×100; colour =
 swatch UID, 0 `Text Color`; code = u16 or u32, by the listed codes. The
 second part of the encoding column is the value type.
@@ -1330,6 +1330,7 @@ separates them too.
 | 0x42A4 | `ParagraphGyoudori` | bool, 0x1B04 | 1,252 | 12 | 1 | 0 | `false` (1,252), `true` (13) | order, values |
 | 0x42B3 | `RubyAutoTcyAutoScale` | bool, 0x1B03 | 1,252 | 7 | 23 | 0 | `true` (1,282) | order only |
 | 0x1A407 | `NumberingStartAt` | u32, 0x1B00 | 1,252 | – | 7 | 0 | `1` (1,252), `2` (5), `3` (2) | order, values |
+| 0x1A41E | `NumberingRestartPolicies` (Properties) | three u32 (below), 0x1A4A6 | 1,252 | 1 | – | 0 | `AnyPreviousLevel` 0 0 (1,252), `AfterSpecificLevel` 1 1 (1) | order, values |
 | 0x1DF05 | `ParagraphBorderStrokeEndJoin` | u32 code 0 `MiterEndJoin`; 0x1DF3B | 919 | – | – | 0 | `MiterEndJoin` (919) | order only |
 | 0x1DF06 | `ParagraphBorderTopLeftCornerOption` | u32 code 0 `None`; 0x1DF51 | 919 | – | – | 0 | `None` (919) | order only |
 | 0x1DF07 | `ParagraphBorderTopRightCornerOption` | u32 code 0 `None`; 0x1DF51 | 919 | – | – | 0 | `None` (919) | order only |
@@ -1344,7 +1345,7 @@ separates them too.
 | 0x50F3D | `OTFStylisticAlternate` | bool, 0x1B04 | 1,252 | – | 25 | 0 | `false` (1,275), `true` (2) | order only (the four vary together) |
 | 0x50F3E | `OTFJustificationAlternate` | bool, 0x1B04 | 1,252 | – | 25 | 0 | `false` (1,275), `true` (2) | order only (the four vary together) |
 | 0x50F3F | `OTFStretchedAlternate` | bool, 0x1B04 | 1,252 | – | 25 | 0 | `false` (1,275), `true` (2) | order only (the four vary together) |
-| 0x50F40 | `KeyboardDirection` | u32 code 0 `DefaultDirection`; 0x50F2E | 1,252 | – | – | 0 | `DefaultDirection` (1,252) | order only |
+| 0x50F40 | `KeyboardDirection` | u32 code 0 `DefaultDirection`, 1 `LeftToRightDirection`; 0x50F2E | 1,252 | – | 34 | 0 | `DefaultDirection` (1,252), `LeftToRightDirection` (34) | order, values |
 
 Notes:
 
@@ -1353,12 +1354,18 @@ Notes:
   rule.
 - `KentenPosition` has a boolean value type but an enumeration value
   (0 = `AboveRight`).
-- The enumerations list only the codes seen, one per attribute in the
-  trustworthy pairs. Other codes are left out and reported by `indd
-  audit`.
-- `KeyboardDirection` has the value type of `CharacterDirection`
-  (0x50F2E). 34 character ranges of one trustworthy pair store code 1;
-  the converter does not write it.
+- The enumerations list only the codes seen. Other codes are left out
+  and reported by `indd audit`. Each has one code in the trustworthy
+  pairs, except `KeyboardDirection`: code 1 is `LeftToRightDirection` in
+  34 of 34 character ranges of one pair. It has the value type of
+  `CharacterDirection` (0x50F2E), whose code 1 is the same value.
+- `NumberingRestartPolicies` is a `Properties` child with three XML
+  attributes and no text. Its value is three u32: (0, 0, 0) in the
+  1,252 roots is `RestartPolicy="AnyPreviousLevel" LowerLevel="0"
+  UpperLevel="0"`, and (1, 1, 1) in one other paragraph style is
+  `RestartPolicy="AfterSpecificLevel" LowerLevel="1" UpperLevel="1"`.
+  The second triple does not show which word is the lower level and
+  which the upper, so the converter writes these two triples only.
 
 **Stored but never written.** The root paragraph styles also store IDs
 that no IDML attribute matches: after this table, every text attribute
@@ -1383,6 +1390,7 @@ them out. Over the 489 trustworthy pairs (`measurement.md`):
 | `NextStyle` of the root paragraph style | never (0 of 489) |
 | `AllNestedStyles` of the root paragraph style | never (0 of 489) |
 | `AllNestedStyles` of `TextDefault` | only when the list has items: absent in 485, written in the 4 with items |
+| `AllNestedStyles` of other paragraph styles | only when the list has items: written on 115 of 115 trustworthy styles with items, on 0 of the 2 that store a count of 0 |
 | `AllGREPStyles` and `AllLineStyles` of the root paragraph style | never (0 of 1,251 trustworthy pairs after 2026-10); the root style stores a count of 0 in all 1,251 |
 | `AllGREPStyles` of `TextDefault` | only when the list has items (48 of 48 such lists written, 1,251 trustworthy pairs) |
 | Empty `TabList` of the root paragraph style | DOM 8 on: 482 of 482; DOM 7: 0 of 7 |
