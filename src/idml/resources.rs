@@ -579,6 +579,7 @@ impl Writer<'_> {
                     "FootnoteMarkerStyle",
                     "CharacterStyle/$ID/[No character style]",
                 ),
+                ("SeparatorText", "\t"),
                 ("SpaceBetween", "0"),
                 ("Spacer", "0"),
                 ("FootnoteMinimumFirstBaselineOffset", "0"),

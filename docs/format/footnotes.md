@@ -124,7 +124,7 @@ file, `FootnoteTextStyle="ParagraphStyle/$ID/NormalParagraphStyle"`,
 In the corpus of 2026-10 the 75 files without the chunk (51 trustworthy)
 also have, each in 75 of 75: `StartAt="1"`, `Prefix=""`, `Suffix=""`,
 `FootnoteMarkerStyle="CharacterStyle/$ID/[No character style]"`,
-`SpaceBetween="0"`, `Spacer="0"`,
+`SeparatorText` tab, `SpaceBetween="0"`, `Spacer="0"`,
 `FootnoteMinimumFirstBaselineOffset="0"`, `EosPlacement="false"`,
 `NoSplitting="false"`; for the rule and the continuing rule `…On`
 `true`, `…LineWeight` 1, `…Tint` and `…GapTint` 100, `…LeftIndent` 0,
@@ -136,11 +136,12 @@ and `MarkerPositioning` `SuperscriptMarker`. The value files lost most of
 these when the corpus grew, because files with the chunk vary; the
 converter writes them for files without the chunk.
 
-`SeparatorText` in the value file is the reference `&#9;`; the value file
-reader now decodes numeric character references, so the tab is written
-as a tab.
+The 75 files without the chunk all have a last session with language
+code 0x0100 or 0x0103 (`objects.md`, save history), so whether a
+Japanese edition writes another separator without the chunk, as it does
+for endnotes (endnote options, below), is not shown.
 
-In the trustworthy pairs every `FootnoteOption` value is now reproduced
+In the trustworthy pairs every `FootnoteOption` value is reproduced
 (489 of 489 pairs for each attribute).
 
 ## Text frame footnote options
@@ -263,7 +264,15 @@ fin` 18, `Eindnoten` 12, 4 others in the 654 pairs before 2026-10), and
 the separator and marker position follow its language. The converter
 writes the separator U+3000 when the last session of the save history
 has language code 0x0101, and tab otherwise (140 of 141 pairs before
-2026-10; `objects.md`, save history). The title and the marker position
+2026-10; `objects.md`, save history). Over all pairs of the corpus of
+2026-10 without the chunk this gives 258 of 273 separators (211 of 226
+trustworthy). Of the 15 others, 13 have code 0x0101 and tab, and their
+IDML has the values of a Roman edition in the preferences too
+(`LightBlue` baseline grid, `Violet` column guides; `preferences.md`,
+values of the exporting edition): they were exported by another
+installation. One Japanese document of code 0x0101 has tab and one
+Korean document of code 0x0100 has U+3000; no stored value separates
+them. The title and the marker position
 follow the saving edition that the XMP black name shows (`objects.md`,
 saving edition): `RubyMarker` for a Japanese edition only, so Korean
 editions, which also have code 0x0101, get `SuperscriptMarker`. Over the
