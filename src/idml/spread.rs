@@ -880,6 +880,9 @@ impl Writer<'_> {
         x.attr("ItemTransform", matrix(&item.transform));
         // From 21.4; -1 without the chunk (objects.md, page item settings).
         if self.saved_by((21, 4)) {
+            if let Some(layer) = item.props.grouping_layer {
+                x.attr("BeforeGroupingLayerReference", uref(Some(layer)));
+            }
             x.attr(
                 "BeforeGroupingLayerPosition",
                 item.props.grouping_layer_position.unwrap_or(-1).to_string(),
@@ -971,6 +974,7 @@ impl Writer<'_> {
                 self.doc.version,
                 item.export.as_ref(),
                 item.props.export_size_type,
+                &item.props.generated_alt,
                 if tag == "Group" {
                     export::Owner::Group
                 } else {

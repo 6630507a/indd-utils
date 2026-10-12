@@ -319,6 +319,9 @@ impl Writer<'_> {
         x.attr("ItemTransform", matrix(&g.transform));
         // From 21.4; -1 without the chunk (objects.md, page item settings).
         if self.saved_by((21, 4)) {
+            if let Some(layer) = g.props.grouping_layer {
+                x.attr("BeforeGroupingLayerReference", uref(Some(layer)));
+            }
             x.attr(
                 "BeforeGroupingLayerPosition",
                 g.props.grouping_layer_position.unwrap_or(-1).to_string(),

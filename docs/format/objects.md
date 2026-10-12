@@ -1082,6 +1082,7 @@ IDML value is the default in the table.
 | 0x21D53 | same | `LastUpdatedInterfaceChangeCount` | empty |
 | 0x1424 | u32 master page item, UID list | `OverriddenPageItemProps`: the list in decimal; empty if the master item is 0 | empty |
 | 0x22228 | u8 flags | `HorizontalLayoutConstraints` (bits 4–6), `VerticalLayoutConstraints` (bits 0–2): per bit `FixedDimension` if set, else `FlexibleDimension` | as 0x22 |
+| 0x324 | u32 at 0, a layer or spread layer UID | `BeforeGroupingLayerReference`, from 21.4 (below) | none |
 | 0x324 | i32 at 4 | `BeforeGroupingLayerPosition`, after `ItemTransform`, from 21.4 (also on placed graphics) | `-1` |
 
 | Attribute | IDML | Without the attribute |
@@ -1145,7 +1146,32 @@ earlier ones). Its value is the i32 at 4 of chunk 0x324, or −1 without the
 chunk. The converter writes it for files saved by 21.4 or later: 1,793 of 1,793
 values over the trustworthy pairs (1,308 polygons, 241 text frames, 131
 rectangles, 53 groups, 38 images, 16 EPS, 3 graphic lines and 3 SVG).
-`BeforeGroupingLayerReference` (50 values) is not decoded.
+
+Chunk 0x324 of page items and placed graphics:
+
+| Offset | Contents | IDML |
+|---|---|---|
+| 0 | u32 UID: 0, a layer (class 0x302) or a spread layer (class 0x301) | `BeforeGroupingLayerReference` |
+| 4 | i32 | `BeforeGroupingLayerPosition` |
+| 8 | u8 0, 1 or 2, then bytes not decoded (in some items an in-object string with a layer name) | |
+
+`BeforeGroupingLayerReference` is the layer the UID gives: the UID itself
+for a layer, the u32 at 0 of the spread layer's chunk 0x302 for a spread
+layer. 0, no chunk or another class give no attribute. Over the 1,831
+page items and placed graphics of the 12 DOM 21.4–21.5 pairs:
+
+| Chunk 0x324 | IDML | Items |
+|---|---|---|
+| u32 at 0 is 0 | no `BeforeGroupingLayerReference` | 1,667 of 1,667 |
+| a spread layer | that spread layer's layer | 36 of 36 |
+| a layer | that layer | 14 of 15 |
+| no chunk | no reference, position −1 | 113 of 113 |
+
+The exception is one rectangle on a master spread whose chunk names a
+layer and position 1; its IDML has position −1 and no reference. No
+field that sets it apart was found. The converter's output has 50 of
+the 50 references of the pairs (19 polygons, 15 rectangles, 10 text
+frames, 6 groups) and no other.
 
 **Stroke weight without an attribute.** An item whose attribute list has
 no stroke weight (attribute 0x6E65) takes it from the document's base
@@ -1215,6 +1241,31 @@ many bytes of text. The keys are `UseOrigImage`, `CustomSizeType`,
 `CustomSizeValue` and `CustomContentConversion`. `CustomSizeType` is IDML
 `SizeType`: `1` `DefaultSize`, `2` `FixedSize`, `3` `RelativeToTextFlow`,
 `4` `RelativeToTextSize`; an item without the chunk has `DefaultSize`.
+
+**Generated alternative text.** From 21.4 page items have three more
+chunks:
+
+| Chunk | Contents | IDML `ObjectExportOption` |
+|---|---|---|
+| 0x1E260 | u16: 1 `true`, 0 `false` | `AltTextGenerationError` |
+| 0x1E261 | four f64 | `AltTextCropSyncRect`: empty when all four are 0, else the four numbers (below) |
+| 0x1E262 | u16: 1 `true`, 0 `false` | `AIGeneratedAltText` |
+
+Without the chunk the values are `false`, `false` and empty; the
+converter also writes these for another u16 or a chunk too short for
+its values. Evidence, the 1,701 page items other than groups of the 12
+DOM 21.4–21.5 pairs: `AltTextGenerationError` 1,701 of 1,701 (22
+`true`), `AIGeneratedAltText` 1,701 of 1,701 (3 `true`),
+`AltTextCropSyncRect` 1,701 of 1,701 (8 not empty, two distinct
+rectangles). Items with a `true` flag have `AltTextSourceType="SourceCustom"`
+and the generated or error text in `CustomAltText` (chunk 0x1E206); the
+tail of chunk 0x1E206 is the same in all of them and does not hold the
+flags. Object styles have `AltTextCropSyncRect=""` (49 of 49).
+
+`AltTextCropSyncRect` writes each f64 with exactly 8 decimals, cut, not
+rounded, from the shortest decimal form, joined by commas:
+`415.60850393700787` gives `415.60850393` (rounding would give `…394`),
+`306.7741732283466` gives `306.77417322`, `370.32` gives `370.32000000`.
 
 **Groups** have no `AIGeneratedAltText` and `AltTextGenerationError` in
 their `ObjectExportOption`: none of the 53 groups of the 7 trustworthy
@@ -2749,6 +2800,13 @@ children; chunk 0x28D2 a flag byte and the name. IDML names every group
 `$ID/<name>` (20 of 21 groups), and a style inside groups is referenced as
 `ParagraphStyle/<group>:<group>:<name>` with `:` escaped as `%3a`. All 412
 paragraph styles and 21 groups in the pairs match.
+A group inside another group is named by its full path from the
+top-level group, joined by `:`, as in its `Self`:
+`Self="ParagraphStyleGroup/$ID/Page > Running Text%3aNotes"` has
+`Name="$ID/Page > Running Text:Notes"`. Over all pairs: 72 of 72 nested
+paragraph style groups, 25 of 25 character style groups and 2 of 2
+object style groups (three levels at most); top-level groups have `$ID/`
+and their name (622 of 622).
 Cell style groups work the same way: the root cell style group's
 children (chunk 0x2024E) include groups of class 0xCA8B, and IDML writes
 each as `<CellStyleGroup Self="CellStyleGroup/$ID/<group>"

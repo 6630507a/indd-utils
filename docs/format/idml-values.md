@@ -582,7 +582,7 @@ trustworthy pairs there is no exception inside a version:
 | 10.1 on | `EpubType="$ID/"`, `SizeType="DefaultSize"`, `CustomSize="$ID/"`, `PreserveAppearanceFromLayout="PreserveAppearanceDefault"` |
 | 21.0 on | also `EpubAriaRole="$ID/"` |
 | 21.1 on | also `EpubAriaLabel="$ID/"`, `EpubAriaLabelSourceType="AutomaticARIALabel"` |
-| 21.4 on | also `AIGeneratedAltText="false"`, `AltTextGenerationError="false"`, `AltTextCropSyncRect=""` |
+| 21.4 on | also `AIGeneratedAltText`, `AltTextGenerationError` and `AltTextCropSyncRect`, read from chunks 0x1E260–0x1E262 (`objects.md`, generated alternative text; `false`, `false` and empty without them) |
 
 The common set, on every page item from version 8 on: the alternative
 text and tagging values (`AltTextSourceType`, `ActualTextSourceType`,

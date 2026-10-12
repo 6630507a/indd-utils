@@ -480,6 +480,29 @@ attribute list in chunk 0xB667. IDML writes on it:
   writing only the attributes of the observed root values did, with no
   extra value.
 
+**Caption position.** From DOM 21.5 every `TableStyle` in IDML has
+`CaptionPosition`, the root style included (8 of 8 table styles in 4
+pairs); none of the 16 table styles of DOM 21.4 has it. It comes from the
+style's own attribute 0x1047D (value type 0x22E1F, a u16), not from its
+based-on style:
+
+| 0x1047D | `CaptionPosition` | Styles |
+|---|---|---|
+| u16 1 | `BeforeTable` | 2 of 2 (root styles) |
+| absent | `AfterTable` | 6 of 6 |
+
+The four `[Basic Table]` styles have an empty attribute list and
+`AfterTable`, also where their root style has `BeforeTable`. Code 0 has
+no sample; the converter leaves the attribute out for any code other
+than 1.
+
+The two root styles with 0x1047D also have 0x1047A, 0x1047B and 0x1047C
+(value types 0x22E15, 0x22E16 and 0x22E1E, a u32 0 each), which no other
+root style has, and their IDML has `CaptionParagraphCount="0"` and
+`HeaderColumnCellStyle="n"`; the two root styles without these IDs have
+neither attribute. Which ID is which is not shown, so the converter
+writes neither.
+
 The alternating-pattern skip counts not listed above and the table-only
 attributes of one table (0xB634/0xB637, `DefaultRowStrokeWeight` and
 `DefaultColumnStrokeWeight`, equal so their order is not shown; 0xB66F

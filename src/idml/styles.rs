@@ -129,6 +129,9 @@ impl Writer<'_> {
         for (k, v) in attrs {
             x.attr(k, v);
         }
+        if tag == "TableStyle" {
+            self.caption_position(x, &s.attrs);
+        }
         // Values every IDML has on these styles (idml-values.md).
         if let Some(n) = values::element(tag, self.doc.version.major) {
             x.attrs_missing(n.attrs.iter());
@@ -187,6 +190,7 @@ impl Writer<'_> {
             for (k, v) in self.table_attrs(&root.attrs, true) {
                 x.attr(k, v);
             }
+            self.caption_position(x, &root.attrs);
             if self.doc.version.major >= 11 {
                 for &(id, k, kind) in TEXT_CELL_ATTRS.iter().chain(GRAPHIC_CELL_ATTRS) {
                     if let Some(v) = root.attrs.get(id).and_then(|v| self.value_text(kind, v)) {
@@ -200,6 +204,20 @@ impl Writer<'_> {
             c.write(x);
         }
         x.end();
+    }
+
+    /// `CaptionPosition` of a table style from DOM 21.5, from its own
+    /// attribute 0x1047D only (tables.md, caption position).
+    fn caption_position(&self, x: &mut Xml, attrs: &crate::model::Attrs) {
+        if self.dom_version() < (21, 5) {
+            return;
+        }
+        let position = match attrs.get(TABLE_STYLE_CAPTION_POSITION) {
+            None => "AfterTable",
+            Some(Value::Enum(1)) => "BeforeTable",
+            Some(_) => return,
+        };
+        x.attr("CaptionPosition", position);
     }
 
     /// `CellStyle/...` or `TableStyle/...` reference of a style.
@@ -457,9 +475,13 @@ impl Writer<'_> {
         // The export options of the version (idml-values.md) in place of
         // those of the value files.
         node.children.retain(|c| c.tag != "ObjectExportOption");
-        if let Some(e) =
-            export::object_export_option(self.doc.version, None, None, export::Owner::Style)
-        {
+        if let Some(e) = export::object_export_option(
+            self.doc.version,
+            None,
+            None,
+            &Default::default(),
+            export::Owner::Style,
+        ) {
             node.children.insert(0, e);
         }
         // The transform values the style sets, where IDML has the element
@@ -867,12 +889,19 @@ impl Writer<'_> {
             if let Some(sub) = self.doc.style_groups.get(&c) {
                 let sub_tag = format!("{tag}Group");
                 let path = self.group_path.get(&sub.uid).cloned().unwrap_or_default();
+                // A nested group's name is its full path (objects.md,
+                // style groups).
+                let name = if path.is_empty() {
+                    sub.name.clone()
+                } else {
+                    path.join(":")
+                };
                 x.start(&sub_tag)
                     .attr(
                         "Self",
                         format!("{sub_tag}/$ID/{}", self_name(&path.join(":"))),
                     )
-                    .attr("Name", builtin_key(&sub.name));
+                    .attr("Name", builtin_key(&name));
                 self.table_style_group_children(x, sub, tag, styles, seen);
                 x.end();
             } else if let Some(s) = styles.get(&c)
@@ -894,12 +923,19 @@ impl Writer<'_> {
         for &c in &g.children {
             if let Some(sub) = self.doc.style_groups.get(&c) {
                 let path = self.group_path.get(&sub.uid).cloned().unwrap_or_default();
+                // A nested group's name is its full path (objects.md,
+                // style groups).
+                let name = if path.is_empty() {
+                    sub.name.clone()
+                } else {
+                    path.join(":")
+                };
                 x.start(sub_tag)
                     .attr(
                         "Self",
                         format!("{sub_tag}/$ID/{}", self_name(&path.join(":"))),
                     )
-                    .attr("Name", builtin_key(&sub.name));
+                    .attr("Name", builtin_key(&name));
                 self.style_group_children(x, sub, tag, sub_tag, written);
                 x.end();
             } else if let Some(s) = self.doc.styles.get(&c) {

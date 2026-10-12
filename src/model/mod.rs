@@ -78,6 +78,41 @@ mod tests {
     }
 
     #[test]
+    fn grouping_layer_resolves_spread_layers() {
+        let layer_chunk = |uid: u32| {
+            let mut d = uid.to_le_bytes().to_vec();
+            d.extend(1i32.to_le_bytes());
+            synthetic::chunks(&[(chunk::ITEM_GROUPING_LAYER, d)])
+        };
+        // Item 10 names spread layer 21 of layer 20, item 11 layer 20,
+        // item 12 group 10, item 13 nothing.
+        let objects = [
+            (10, class::GROUP, layer_chunk(21)),
+            (11, class::GROUP, layer_chunk(20)),
+            (12, class::GROUP, layer_chunk(10)),
+            (13, class::GROUP, layer_chunk(0)),
+            (20, class::LAYER, synthetic::chunks(&[])),
+            (
+                21,
+                class::SPREAD_LAYER,
+                synthetic::chunks(&[(chunk::SPREAD_LAYER_LAYER, 20u32.to_le_bytes().to_vec())]),
+            ),
+        ];
+        let bytes = synthetic::image(&objects);
+        let db = synthetic::database(&bytes, &objects);
+        let reader = Reader::new(&db);
+        let layer = |uid| reader.item_props(uid).unwrap().grouping_layer;
+        assert_eq!(layer(10), Some(20));
+        assert_eq!(layer(11), Some(20));
+        assert_eq!(layer(12), None);
+        assert_eq!(layer(13), None);
+        assert_eq!(
+            reader.item_props(10).unwrap().grouping_layer_position,
+            Some(1)
+        );
+    }
+
+    #[test]
     fn groups_that_contain_themselves_are_left_out() {
         // Group 10 contains itself and group 11; group 11 contains 10.
         let objects = [group(10, &[10, 11]), group(11, &[10])];

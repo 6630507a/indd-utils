@@ -7,7 +7,7 @@
 
 use super::values::Node;
 use crate::header::Version;
-use crate::model::{ExportOptions, Name};
+use crate::model::{ExportOptions, GeneratedAltText, Name};
 
 /// The values every `ObjectExportOption` has, in IDML order, after the
 /// alternative text and tagging values.
@@ -71,11 +71,13 @@ pub(super) enum Owner {
 /// The `ObjectExportOption` of a page item, a group or an object style, or `None` for versions whose IDML has none: page items before
 /// 8, object styles before 9. `options` are the item's values from chunk
 /// 0x1E206; without them the values of an item without the chunk apply.
-/// Codes not identified leave their attribute out.
+/// `generated` is the generated alternative text of an item other than a
+/// group. Codes not identified leave their attribute out.
 pub(super) fn object_export_option(
     version: Version,
     options: Option<&ExportOptions>,
     size_type: Option<u32>,
+    generated: &GeneratedAltText,
     owner: Owner,
 ) -> Option<Node> {
     let style = owner == Owner::Style;
@@ -161,11 +163,18 @@ pub(super) fn object_export_option(
     if v >= (21, 4) {
         // Groups and styles have no generated alternative text
         // (idml-values.md, export options).
-        if owner == Owner::Item {
-            add("AIGeneratedAltText", "false".into());
-            add("AltTextGenerationError", "false".into());
+        let item = owner == Owner::Item;
+        if item {
+            add("AIGeneratedAltText", generated.ai.to_string());
+            add("AltTextGenerationError", generated.error.to_string());
         }
-        add("AltTextCropSyncRect", String::new());
+        add(
+            "AltTextCropSyncRect",
+            match generated.crop.filter(|_| item) {
+                Some(r) => r.map(eight_decimals).join(","),
+                None => String::new(),
+            },
+        );
     }
     if v >= (9, 2) && old {
         add("UseOriginalImage", "false".into());
@@ -204,6 +213,14 @@ pub(super) fn object_export_option(
     })
 }
 
+/// `v` in its shortest decimal form, cut or padded to exactly 8 decimals
+/// (objects.md, object export options).
+fn eight_decimals(v: f64) -> String {
+    let s = format!("{v}");
+    let (int, frac) = s.split_once('.').unwrap_or((&s, ""));
+    format!("{int}.{:0<8.8}", frac)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,28 +229,32 @@ mod tests {
         Version { major, minor }
     }
 
+    fn option(v: Version, o: Option<&ExportOptions>, owner: Owner) -> Option<Node> {
+        object_export_option(v, o, None, &GeneratedAltText::default(), owner)
+    }
+
     fn names(n: &Node) -> Vec<&str> {
         n.attrs.iter().map(|(k, _)| k.as_str()).collect()
     }
 
     #[test]
     fn writes_attributes_by_version() {
-        assert!(object_export_option(version(7, 5), None, None, Owner::Item).is_none());
-        assert!(object_export_option(version(8, 0), None, None, Owner::Style).is_none());
-        let n = object_export_option(version(9, 2), None, None, Owner::Style).unwrap();
+        assert!(option(version(7, 5), None, Owner::Item).is_none());
+        assert!(option(version(8, 0), None, Owner::Style).is_none());
+        let n = option(version(9, 2), None, Owner::Style).unwrap();
         assert!(names(&n).contains(&"CustomImageConversion"));
         assert_eq!(names(&n).last(), Some(&"UseOriginalImage"));
-        let n = object_export_option(version(10, 0), None, None, Owner::Item).unwrap();
+        let n = option(version(10, 0), None, Owner::Item).unwrap();
         assert!(names(&n).contains(&"CustomWidthType"));
         assert!(!names(&n).contains(&"SizeType"));
-        let n = object_export_option(version(10, 1), None, None, Owner::Item).unwrap();
+        let n = option(version(10, 1), None, Owner::Item).unwrap();
         assert!(names(&n).contains(&"SizeType"));
         assert!(!names(&n).contains(&"CustomImageConversion"));
         assert!(!names(&n).contains(&"EpubAriaRole"));
-        let n = object_export_option(version(21, 4), None, None, Owner::Style).unwrap();
+        let n = option(version(21, 4), None, Owner::Style).unwrap();
         assert!(names(&n).contains(&"AltTextCropSyncRect"));
         assert!(!names(&n).contains(&"AIGeneratedAltText"));
-        let n = object_export_option(version(21, 4), None, None, Owner::Item).unwrap();
+        let n = option(version(21, 4), None, Owner::Item).unwrap();
         assert!(names(&n).contains(&"AIGeneratedAltText"));
         assert_eq!(n.attr("CustomAltText"), Some("$ID/"));
         assert_eq!(n.attr("AltTextSourceType"), Some("SourceXMLStructure"));
@@ -251,13 +272,31 @@ mod tests {
             tag_type: 1,
             ..ExportOptions::default()
         };
-        let n = object_export_option(version(20, 5), Some(&o), None, Owner::Item).unwrap();
+        let n = option(version(20, 5), Some(&o), Owner::Item).unwrap();
         assert_eq!(n.attr("AltTextSourceType"), Some("SourceDecorativeImage"));
         assert_eq!(n.attr("ActualTextSourceType"), Some("SourceXMPAltText"));
         assert_eq!(n.attr("CustomAltText"), Some("A tree"));
         assert_eq!(n.attr("ApplyTagType"), Some("TagArtifact"));
         let o = ExportOptions { alt_source: 3, ..o };
-        let n = object_export_option(version(20, 5), Some(&o), None, Owner::Item).unwrap();
+        let n = option(version(20, 5), Some(&o), Owner::Item).unwrap();
         assert_eq!(n.attr("AltTextSourceType"), None);
+    }
+
+    #[test]
+    fn writes_generated_alternative_text() {
+        let g = GeneratedAltText {
+            error: false,
+            ai: true,
+            crop: Some([415.60850393700787, 306.7741732283466, 370.32, 0.0]),
+        };
+        let n = object_export_option(version(21, 4), None, None, &g, Owner::Item).unwrap();
+        assert_eq!(n.attr("AIGeneratedAltText"), Some("true"));
+        assert_eq!(n.attr("AltTextGenerationError"), Some("false"));
+        assert_eq!(
+            n.attr("AltTextCropSyncRect"),
+            Some("415.60850393,306.77417322,370.32000000,0.00000000")
+        );
+        let n = object_export_option(version(21, 4), None, None, &g, Owner::Group).unwrap();
+        assert_eq!(n.attr("AltTextCropSyncRect"), Some(""));
     }
 }

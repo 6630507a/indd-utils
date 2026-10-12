@@ -1507,6 +1507,9 @@ pub(super) const ROW_ATTRS: &[(u32, &str, Kind)] = &[
     (0xB6A1, "KeepWithNextRow", Kind::Enum(&[(0, "false")])),
 ];
 
+/// Caption position of a table style: u16 1 = `BeforeTable`.
+pub(super) const TABLE_STYLE_CAPTION_POSITION: u32 = 0x1047D;
+
 /// Paragraph style of a cell style.
 pub(super) const CELL_STYLE_PARAGRAPH_STYLE: u32 = 0x10463;
 

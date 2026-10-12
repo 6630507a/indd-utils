@@ -221,6 +221,18 @@ pub struct ExportOptions {
     pub tag_type: u32,
 }
 
+/// Generated alternative text of a page item (chunks 0x1E260 to
+/// 0x1E262). See `docs/format/objects.md`, object export options.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct GeneratedAltText {
+    /// Chunk 0x1E260 is 1.
+    pub error: bool,
+    /// Chunk 0x1E262 is 1.
+    pub ai: bool,
+    /// The four f64 of chunk 0x1E261, unless all are 0.
+    pub crop: Option<[f64; 4]>,
+}
+
 /// Settings every page item has. See `docs/format/objects.md`, page item
 /// settings.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -249,6 +261,10 @@ pub struct ItemProps {
     /// The i32 at 4 of chunk 0x324: the layer position before grouping
     /// (`objects.md`, page item settings).
     pub grouping_layer_position: Option<i32>,
+    /// The layer named by the u32 at 0 of chunk 0x324, a spread layer
+    /// resolved to its layer (`objects.md`, page item settings).
+    pub grouping_layer: Option<u32>,
+    pub generated_alt: GeneratedAltText,
     /// The value of key `CustomSizeType` of chunk 0x1E22B (`objects.md`,
     /// export options).
     pub export_size_type: Option<u32>,
@@ -849,6 +865,8 @@ impl<'a> Reader<'a> {
             grouping_layer_position: self
                 .chunk(uid, chunk::ITEM_GROUPING_LAYER)?
                 .and_then(|d| self.enc().i32_at(&d, 4)),
+            grouping_layer: self.grouping_layer(uid)?,
+            generated_alt: self.generated_alt(uid)?,
             export_size_type: match self.chunk(uid, chunk::ITEM_EXPORT_SIZE)? {
                 Some(d) => key_values(&mut self.cursor(&d)).ok().and_then(|kv| {
                     kv.into_iter()
@@ -861,6 +879,40 @@ impl<'a> Reader<'a> {
                 None => None,
             },
         })
+    }
+
+    fn generated_alt(&self, uid: u32) -> Result<GeneratedAltText, Error> {
+        let flag = |id| -> Result<bool, Error> {
+            Ok(self.chunk(uid, id)?.and_then(|d| self.enc().u16_at(&d, 0)) == Some(1))
+        };
+        let crop = self.chunk(uid, chunk::ITEM_ALT_TEXT_CROP)?.and_then(|d| {
+            let r = [0, 8, 16, 24].map(|o| self.enc().f64_at(&d, o));
+            let r = [r[0]?, r[1]?, r[2]?, r[3]?];
+            r.iter().any(|&v| v != 0.0).then_some(r)
+        });
+        Ok(GeneratedAltText {
+            error: flag(chunk::ITEM_ALT_TEXT_ERROR)?,
+            ai: flag(chunk::ITEM_AI_ALT_TEXT)?,
+            crop,
+        })
+    }
+
+    /// The layer of chunk 0x324: a layer UID itself, a spread layer's
+    /// layer (its chunk 0x302), else none.
+    fn grouping_layer(&self, uid: u32) -> Result<Option<u32>, Error> {
+        let Some(mut layer) = self
+            .chunk(uid, chunk::ITEM_GROUPING_LAYER)?
+            .and_then(|d| self.enc().u32_at(&d, 0))
+        else {
+            return Ok(None);
+        };
+        if layer != 0 && self.class(layer) == Some(class::SPREAD_LAYER) {
+            layer = match self.chunk(layer, chunk::SPREAD_LAYER_LAYER)? {
+                Some(d) => self.enc().u32_at(&d, 0).unwrap_or(0),
+                None => 0,
+            };
+        }
+        Ok((layer != 0 && self.class(layer) == Some(class::LAYER)).then_some(layer))
     }
 
     /// The export options of a page item (chunk 0x1E206): the alternative

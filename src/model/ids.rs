@@ -258,6 +258,10 @@ pub mod chunk {
     pub const ITEM_LAYOUT_CONSTRAINTS: u32 = 0x22228;
     /// Export options: alternative text, actual text, tagging.
     pub const ITEM_EXPORT: u32 = 0x1E206;
+    /// Generated alternative text: error flag, crop rectangle, AI flag.
+    pub const ITEM_ALT_TEXT_ERROR: u32 = 0x1E260;
+    pub const ITEM_ALT_TEXT_CROP: u32 = 0x1E261;
+    pub const ITEM_AI_ALT_TEXT: u32 = 0x1E262;
     /// Export size settings: a list of keys and string values.
     pub const ITEM_EXPORT_SIZE: u32 = 0x1E22B;
     pub const ROOT_GROUP_KIND: u32 = 0x28C2;
