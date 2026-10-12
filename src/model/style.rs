@@ -204,6 +204,9 @@ pub struct ObjectStyle {
     pub named_grid: Option<Option<u32>>,
     /// Export settings (chunk 0x28F0).
     pub export: Option<StyleExport>,
+    /// Alternative text and tagging settings (chunk 0x1E206, the layout
+    /// of page items).
+    pub export_options: Option<ExportOptions>,
     /// Transform attributes (chunk 0x1E234): X, Y, height and width, each
     /// `Some` when the style sets it.
     pub transform: [Option<f64>; 4],
@@ -669,6 +672,10 @@ impl<'a> Reader<'a> {
             }),
             named_grid: self.applied_named_grid(uid)?,
             export: self.style_export(uid)?,
+            export_options: self.export_options(uid).unwrap_or_else(|e| {
+                self.warn(format!("object style {uid}: export options left out: {e}"));
+                None
+            }),
             transform: match self.chunk(uid, chunk::OBJECT_STYLE_TRANSFORM)? {
                 Some(d) => transform_options(self.enc(), &d),
                 None => [None; 4],

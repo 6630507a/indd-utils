@@ -500,12 +500,13 @@ impl Writer<'_> {
         {
             set_property(b, c);
         }
-        // The export options of the version (idml-values.md) in place of
-        // those of the value files.
+        // The export options of the version (idml-values.md), with the
+        // style's alternative text and tagging (objects.md, object export
+        // options), in place of those of the value files.
         node.children.retain(|c| c.tag != "ObjectExportOption");
         if let Some(e) = export::object_export_option(
             self.doc.version,
-            None,
+            os.export_options.as_ref(),
             None,
             &Default::default(),
             export::Owner::Style,

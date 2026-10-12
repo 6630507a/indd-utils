@@ -1273,6 +1273,17 @@ files. The converter leaves out an attribute whose code is not in the
 table. Which other attributes `ObjectExportOption` has depends on the
 version (`idml-values.md`, export options of page items).
 
+**Object styles** (class 0x1B901) may have chunk 0x1E206 with the same
+layout, and IDML writes its first eight values in the style's
+`ObjectExportOption` the same way. In the 1,503 pairs outside the
+privately held samples, 3,643 object styles have the chunk: 20 store
+tagging 1 and have `ApplyTagType="TagArtifact"` (20 of 20, in 2 DOM 20
+pairs); all others store the default values and have them in IDML.
+One privately held sample adds 1 object style with source 0 and a
+custom alternative text: `AltTextSourceType="SourceCustom"` and the text
+in `CustomAltText` (1 of 1). Styles without the chunk have the
+defaults.
+
 **Export size (chunk 0x1E22B).** A list of keys and values: u32 count;
 per entry a u32 length and the key in text segments, a flag byte, two
 bytes, a u16 value count and the values, each a u8 length, a u8 and that
