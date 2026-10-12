@@ -162,6 +162,8 @@ pub struct Spread {
     /// Page transition type and direction codes (chunk 0x2050C, u32 at 0
     /// and 8); `None` without the chunk.
     pub transition: Option<(u32, u32)>,
+    /// Timing lists (chunk 0x2056D).
+    pub timing: Vec<TimingList>,
 }
 
 /// A ruler guide (class 0x3301, chunk 0x3308). See `docs/format/objects.md`.
@@ -488,6 +490,7 @@ impl<'a> Reader<'a> {
             .and_then(|d| Some((self.enc().u32_at(&d, 0)?, self.enc().u32_at(&d, 8)?)));
         Ok(Spread {
             transition,
+            timing: self.timing(uid, chunk::SPREAD_TIMING),
             uid,
             master_name,
             transform,

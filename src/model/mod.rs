@@ -7,6 +7,7 @@
 //! `style`, `settings` (document-level settings and lists) and the other
 //! child modules; `ids` holds the class and chunk IDs.
 
+mod animation;
 pub mod attrs;
 pub mod cjk;
 pub mod color;
@@ -29,6 +30,7 @@ pub mod xml;
 pub mod xmp;
 pub mod xref;
 
+pub use animation::{Animation, MotionPreset, TimingGroup, TimingList, TimingTarget};
 pub use document::*;
 pub use ids::*;
 pub use item::*;
@@ -301,6 +303,7 @@ mod tests {
             show_master_items: None,
             primary_story: None,
             transition: None,
+            timing: Vec::new(),
         };
         // Master B (pages listed right to left) is based on master A.
         let mut masters = vec![

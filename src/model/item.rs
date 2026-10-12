@@ -135,6 +135,8 @@ pub struct Form {
     pub font_size: Option<f64>,
     /// Font family and style of a text box.
     pub font: Option<(String, Option<String>)>,
+    /// Timing lists of a button (chunk 0x2056E).
+    pub timing: Vec<TimingList>,
 }
 
 /// One state of a form field.
@@ -186,6 +188,8 @@ pub struct PageItem {
     pub text_paths: Vec<TextPath>,
     /// Script label: key and value pairs, in stored order.
     pub label: Vec<(String, String)>,
+    /// Animation (chunk 0x2055F).
+    pub animation: Option<Animation>,
 }
 
 /// Text on the path of a shape or frame (class 0xB320). See
@@ -1170,7 +1174,11 @@ impl<'a> Reader<'a> {
             } else {
                 Vec::new()
             };
-            ItemKind::Form(form_field(kind, states, &attrs, &children))
+            let mut f = form_field(kind, states, &attrs, &children);
+            if kind == FormKind::Button {
+                f.timing = self.timing(uid, chunk::BUTTON_TIMING);
+            }
+            ItemKind::Form(f)
         } else if cls == Some(class::GROUP) {
             ItemKind::Group
         } else if cls == Some(class::EPS_TEXT) {
@@ -1231,6 +1239,7 @@ impl<'a> Reader<'a> {
                 self.warn(format!("item {uid}: label left out: {e}"));
                 Vec::new()
             }),
+            animation: self.animation(uid),
         }))
     }
 
@@ -1857,6 +1866,7 @@ fn form_field(
             .and_then(Value::as_f64)
             .filter(|_| matches!(kind, FormKind::TextBox | FormKind::ComboBox)),
         font,
+        timing: Vec::new(),
     }
 }
 

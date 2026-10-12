@@ -57,6 +57,8 @@ pub struct Document {
     /// Named grids (class 0xCD12, chunk 0xCD28: u32, a flag byte, 1 for
     /// a built-in key, and the name), in UID order.
     pub named_grids: Vec<NamedGrid>,
+    /// Motion presets, in the order of chunk 0x2053E of the preferences.
+    pub motion_presets: Vec<MotionPreset>,
     pub spreads: Vec<Spread>,
     pub master_spreads: Vec<Spread>,
     pub stories: Vec<Story>,
@@ -279,6 +281,7 @@ impl<'a> Reader<'a> {
         let toc_styles = self.toc_styles(version);
         let stroke_styles = self.stroke_styles();
         let named_grids = self.named_grids();
+        let motion_presets = self.motion_presets();
         let index_groups = self.index_groups();
         let index = self.index().unwrap_or_else(|e| {
             self.warn(format!("index left out: {e}"));
@@ -377,6 +380,7 @@ impl<'a> Reader<'a> {
             toc_styles,
             stroke_styles,
             named_grids,
+            motion_presets,
             index_groups,
             index,
             constant_shade,

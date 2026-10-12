@@ -1102,6 +1102,16 @@ impl Writer<'_> {
                 item.uid
             ));
         }
+        // IDML writes a multi-state object's animation after its states
+        // (objects.md, animation settings); the schema allows a button's
+        // only before its timing and states.
+        let multi_state = matches!(&item.kind, ItemKind::Form(f) if f.kind == FormKind::MultiState);
+        if !multi_state && let Some(a) = &item.animation {
+            self.animation_setting(x, item.uid, a);
+        }
+        if let ItemKind::Form(f) = &item.kind {
+            self.timing_setting(x, &uref(Some(item.uid)), &f.timing);
+        }
         if let Some(a) = &item.anchor {
             self.anchors.borrow_mut().push(a.clone());
         }
@@ -1113,6 +1123,9 @@ impl Writer<'_> {
         }
         if let ItemKind::Form(f) = &item.kind {
             self.form_states(x, item, f, &item.transform.then(outer));
+        }
+        if multi_state && let Some(a) = &item.animation {
+            self.animation_setting(x, item.uid, a);
         }
         for g in &item.graphics {
             self.placed_graphic(x, g, &item.transform.then(outer));
@@ -1782,6 +1795,7 @@ impl Writer<'_> {
             }
             fp.write(&mut x);
         }
+        self.timing_setting(&mut x, &uref(Some(s.uid)), &s.timing);
         for p in &s.pages {
             let name = if master {
                 prefix.clone()
@@ -1974,6 +1988,7 @@ mod tests {
             show_master_items: None,
             primary_story: None,
             transition: None,
+            timing: Vec::new(),
         };
         assert_eq!(primary_text_frame(&s).as_deref(), Some("n"));
         s.primary_story = Some(0);

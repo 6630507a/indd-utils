@@ -42,6 +42,8 @@ pub mod class {
     pub const DASHED_STROKE_STYLE: u32 = 0x5A43;
     pub const STRIPED_STROKE_STYLE: u32 = 0xB016;
     pub const NAMED_GRID: u32 = 0xCD12;
+    /// A motion preset (IDML `MotionPreset`).
+    pub const MOTION_PRESET: u32 = 0x20517;
     pub const ASSIGNMENT: u32 = 0x1BE01;
     pub const SMOOTH_SHADE: u32 = 0x5533;
     /// Form fields and multi-state objects (IDML `Button`, `CheckBox`,
@@ -354,6 +356,16 @@ pub mod chunk {
     /// Size and position of an object style's transform attributes.
     pub const OBJECT_STYLE_TRANSFORM: u32 = 0x1E234;
     pub const GUIDE: u32 = 0x3308;
+    /// Preferences: u32 count, then the motion preset UIDs.
+    pub const PRESET_LIST: u32 = 0x2053E;
+    /// Motion preset: contents, 4 bytes, an empty name, the name.
+    pub const PRESET_DATA: u32 = 0x20532;
+    /// Timing lists of a spread (and, empty, of most page items).
+    pub const SPREAD_TIMING: u32 = 0x2056D;
+    /// Timing lists of a button.
+    pub const BUTTON_TIMING: u32 = 0x2056E;
+    /// Animation of a page item; `00 00` for none.
+    pub const ANIMATION: u32 = 0x2055F;
 }
 
 /// Kinds of strand run data (first u32 of chunk 0x262).

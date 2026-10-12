@@ -7,6 +7,7 @@
 //! the text forms of values, `pages` page numbering, `values` the values
 //! every IDML has, and `transparency` the effect settings.
 
+mod animation;
 mod applied;
 mod attrs;
 mod designmap;

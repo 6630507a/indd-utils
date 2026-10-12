@@ -352,6 +352,9 @@ impl Writer<'_> {
             }
             x.end();
         }
+        for p in &doc.motion_presets {
+            Self::motion_preset(&mut x, p);
+        }
         singleton(&mut x, "ConditionalTextPreference");
         x.empty(
             "idPkg:Preferences",

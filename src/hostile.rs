@@ -47,7 +47,8 @@ const CASE_LIMIT: Duration = Duration::from_secs(20);
 /// The model sources whose hexadecimal constants are the class, chunk and
 /// attribute IDs the synthetic objects are made of. Every hexadecimal
 /// literal of 3 to 6 digits counts: a superset of the IDs is harmless.
-const SOURCES: [&str; 22] = [
+const SOURCES: [&str; 23] = [
+    include_str!("model/animation.rs"),
     include_str!("model/attrs.rs"),
     include_str!("model/cjk.rs"),
     include_str!("model/color.rs"),

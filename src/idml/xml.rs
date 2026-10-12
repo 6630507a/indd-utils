@@ -23,7 +23,7 @@ pub struct Xml {
 
 /// Whether XML 1.0 allows `c` (control characters aside): not U+FFFE or
 /// U+FFFF. Rust `char`s are never surrogates.
-fn xml_char(c: char) -> bool {
+pub(super) fn xml_char(c: char) -> bool {
     !matches!(c, '\u{FFFE}' | '\u{FFFF}')
 }
 
