@@ -137,6 +137,8 @@ pub struct Form {
     pub font: Option<(String, Option<String>)>,
     /// Timing lists of a button (chunk 0x2056E).
     pub timing: Vec<TimingList>,
+    /// Behaviours in the order of chunk 0x15601.
+    pub behaviors: Vec<Behavior>,
 }
 
 /// One state of a form field.
@@ -1178,6 +1180,7 @@ impl<'a> Reader<'a> {
             if kind == FormKind::Button {
                 f.timing = self.timing(uid, chunk::BUTTON_TIMING);
             }
+            f.behaviors = self.behaviors(uid);
             ItemKind::Form(f)
         } else if cls == Some(class::GROUP) {
             ItemKind::Group
@@ -1867,6 +1870,7 @@ fn form_field(
             .filter(|_| matches!(kind, FormKind::TextBox | FormKind::ComboBox)),
         font,
         timing: Vec::new(),
+        behaviors: Vec::new(),
     }
 }
 

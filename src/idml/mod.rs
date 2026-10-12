@@ -37,10 +37,11 @@ use std::collections::BTreeMap;
 
 use crate::model::prefs::{PrefProp, RulerOrigin};
 use crate::model::{
-    Alternative, Attrs, ChangeEntry, Contour, Document, Form, FormKind, Graphic, GraphicKind,
-    Guide, ItemKind, ItemProps, Link, Matrix, Note, Orientation, Page, PageItem, Path, Section,
-    Shape, SourceRange, Spread, Story, Style, StyleGroup, Table, TextFramePreferences, TextRun,
-    TextSource, TextVariable, TextWrap, UiColorRef, Value, XmlElement, XmlMarker,
+    Alternative, Attrs, Behavior, BehaviorKind, ChangeEntry, Contour, Document, Form, FormKind,
+    Graphic, GraphicKind, Guide, ItemKind, ItemProps, Link, Matrix, Note, Orientation, Page,
+    PageItem, Path, Section, Shape, SourceRange, Spread, Story, Style, StyleGroup, Table,
+    TextFramePreferences, TextRun, TextSource, TextVariable, TextWrap, UiColorRef, Value,
+    XmlElement, XmlMarker,
     hyperlink::DestinationKind,
     numbering, root_kind,
     table::{Cell, CellKind, TableStyles},
@@ -265,6 +266,39 @@ impl Edition {
             Edition::Russian => &["Неизвестное имя пользователя"],
             Edition::Other => &[],
         }
+    }
+
+    /// The name this edition gives a behaviour with the built-in name
+    /// `key`, where a sample shows it (`objects.md`, button behaviours).
+    pub(super) fn behavior_name(self, key: &str) -> Option<&'static str> {
+        let key = key.strip_prefix("$$$/Forms Action/")?;
+        Some(match (self, key) {
+            (Edition::English, "GoTo Anchor") => "Go To Destination",
+            (Edition::Korean, "GoTo Anchor") => "대상으로 이동",
+            (Edition::Korean, "GoTo First Page") => "첫 페이지로 이동",
+            (Edition::Korean, "GoTo Next Page") => "다음 페이지로 이동",
+            (Edition::Korean, "GoTo Previous Page") => "이전 페이지로 이동",
+            (Edition::Korean, "GoTo Next View") => "다음 보기로 이동",
+            (Edition::Korean, "SwitchToMSOState") => "상태로 이동",
+            (Edition::Korean, "SwitchToNextMSOState") => "다음 상태로 이동",
+            (Edition::Korean, "SwitchToPrevMSOState") => "이전 상태로 이동",
+            (Edition::Chinese, "GoTo First Page") => "跳至第一頁",
+            (Edition::Chinese, "GoTo Next Page") => "跳至下一頁",
+            (Edition::Chinese, "GoTo Previous Page") => "跳至上一頁",
+            (Edition::Chinese, "GoTo Page") => "跳至頁面",
+            (Edition::Chinese, "GoTo URL") => "前往 URL",
+            (Edition::Chinese, "SwitchToMSOState") => "跳至狀態",
+            (Edition::Chinese, "SwitchToNextMSOState") => "跳至下一個狀態",
+            (Edition::Chinese, "SwitchToPrevMSOState") => "跳至上一個狀態",
+            (Edition::Chinese, "Movie") => "影片",
+            (Edition::Chinese, "Sound") => "聲音",
+            (Edition::Chinese, "Show/Hide Fields") => "顯示/隱藏欄位",
+            (Edition::Chinese, "Open File") => "開啟檔案",
+            (Edition::Chinese, "Submit Form") => "送出表格",
+            (Edition::Chinese, "Reset Form") => "清除表格",
+            (Edition::Chinese, "Print Form") => "列印表格",
+            _ => return None,
+        })
     }
 }
 

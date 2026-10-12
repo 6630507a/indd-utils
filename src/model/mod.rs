@@ -9,6 +9,7 @@
 
 mod animation;
 pub mod attrs;
+mod behavior;
 pub mod cjk;
 pub mod color;
 mod document;
@@ -31,6 +32,7 @@ pub mod xmp;
 pub mod xref;
 
 pub use animation::{Animation, MotionPreset, TimingGroup, TimingList, TimingTarget};
+pub use behavior::{Behavior, BehaviorKind};
 pub use document::*;
 pub use ids::*;
 pub use item::*;

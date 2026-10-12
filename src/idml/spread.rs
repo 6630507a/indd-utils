@@ -1123,6 +1123,7 @@ impl Writer<'_> {
         }
         if let ItemKind::Form(f) = &item.kind {
             self.form_states(x, item, f, &item.transform.then(outer));
+            self.form_behaviors(x, item, f);
         }
         if multi_state && let Some(a) = &item.animation {
             self.animation_setting(x, item.uid, a);
@@ -1348,6 +1349,146 @@ impl Writer<'_> {
             }
             x.end();
         }
+    }
+
+    /// The behaviours of a button, after its states, in stored order
+    /// (objects.md, button behaviours). Only buttons have behaviours in
+    /// the samples; those of other fields are left out with a warning.
+    fn form_behaviors(&self, x: &mut Xml, item: &PageItem, f: &Form) {
+        if f.behaviors.is_empty() {
+            return;
+        }
+        if f.kind != FormKind::Button {
+            self.warnings.borrow_mut().push(format!(
+                "item {}: behaviours of a {:?} left out",
+                item.uid, f.kind
+            ));
+            return;
+        }
+        for b in &f.behaviors {
+            self.behavior(x, b);
+        }
+    }
+
+    fn behavior(&self, x: &mut Xml, b: &Behavior) {
+        let warn = |what: &str, code: u32| {
+            self.warnings.borrow_mut().push(format!(
+                "behaviour {}: {what} code {code} is not known; left out",
+                b.uid
+            ))
+        };
+        let zoom = |code: u32| match code {
+            0 => Some("InheritZoom"),
+            2 => Some("FitWindow"),
+            _ => {
+                warn("zoom", code);
+                None
+            }
+        };
+        let operation = |code: u32, codes: &[&'static str]| {
+            let op = codes.get(code as usize).copied();
+            if op.is_none() {
+                warn("operation", code);
+            }
+            op
+        };
+        let refs = |show: bool, fields: &[(u32, bool)]| {
+            fields
+                .iter()
+                .filter(|(_, s)| *s == show)
+                .map(|(u, _)| uref(Some(*u)))
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        x.start(b.kind.element()).attr("Self", uref(Some(b.uid)));
+        // Constants without a stored field (objects.md, button
+        // behaviours): `AnchorName`, `GoBackOnRollOff`,
+        // `LoopsToNextOrPrevious`.
+        let mut properties: Option<(&str, String)> = None;
+        match &b.kind {
+            BehaviorKind::FirstPage { zoom: z }
+            | BehaviorKind::NextPage { zoom: z }
+            | BehaviorKind::PreviousPage { zoom: z }
+            | BehaviorKind::NextView { zoom: z } => {
+                x.attr_opt("ZoomSetting", zoom(*z));
+            }
+            BehaviorKind::Page { page, zoom: z } => {
+                x.attr_opt("ZoomSetting", zoom(*z))
+                    .attr("PageNumber", (u64::from(*page) + 1).to_string());
+            }
+            BehaviorKind::Anchor {
+                file,
+                anchor,
+                zoom: z,
+            } => {
+                x.attr("AnchorName", "$ID/")
+                    .attr_opt("ZoomSetting", zoom(*z))
+                    .attr("FilePath", file);
+                let item = if file.is_empty() { 0 } else { *anchor };
+                properties = Some(("AnchorItem", item.to_string()));
+            }
+            BehaviorKind::Url(url) | BehaviorKind::SubmitForm(url) => {
+                x.attr_opt("URL", url.as_deref());
+            }
+            BehaviorKind::OpenFile(file) => {
+                x.attr("FilePath", file);
+            }
+            BehaviorKind::ClearForm | BehaviorKind::PrintForm => {}
+            BehaviorKind::ShowHide(fields) => {
+                x.attr("FieldsToHide", refs(false, fields))
+                    .attr("FieldsToShow", refs(true, fields));
+            }
+            BehaviorKind::State { mso, state } => {
+                x.attr("AssociatedMultiStateObject", uref(Some(*mso)))
+                    .attr("GoBackOnRollOff", "false");
+                properties = Some(("Statetype", state.to_string()));
+            }
+            BehaviorKind::NextState { mso } | BehaviorKind::PreviousState { mso } => {
+                x.attr("AssociatedMultiStateObject", uref(Some(*mso)))
+                    .attr("LoopsToNextOrPrevious", "true");
+            }
+            // `MovieItem` and `SoundItem` reference `Movie` and `Sound`
+            // elements, which are not written.
+            BehaviorKind::Movie {
+                operation: o,
+                point,
+                ..
+            } => {
+                x.attr_opt("NavigationPointID", point.map(|p| p.to_string()))
+                    .attr_opt("Operation", operation(*o, &["Play"]));
+            }
+            BehaviorKind::Sound { operation: o, .. } => {
+                x.attr_opt("Operation", operation(*o, &["Play", "Stop"]));
+            }
+        }
+        let name = if b.name.builtin {
+            self.saving_edition()
+                .and_then(|e| e.behavior_name(&b.name.name))
+                .map(str::to_string)
+        } else {
+            Some(b.name.name.clone())
+        };
+        x.attr_opt("Name", name)
+            .attr("EnableBehavior", b.enabled.to_string());
+        let event = match b.event {
+            0x15602 => Some("MouseDown"),
+            0x15603 => Some("MouseUp"),
+            0x15604 => Some("MouseEnter"),
+            code => {
+                warn("event", code);
+                None
+            }
+        };
+        x.attr_opt("BehaviorEvent", event);
+        if properties.is_some() || !b.label.is_empty() {
+            x.start("Properties");
+            if let Some((tag, value)) = &properties {
+                x.start(tag).attr("type", "long").text(value).end();
+            }
+            Self::label(x, &b.label);
+            x.end();
+        }
+        x.end();
     }
 
     /// Whether the fill or stroke of `overprint` (an `OVERPRINT` entry)

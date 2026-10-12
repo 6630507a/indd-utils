@@ -364,6 +364,11 @@ pub mod chunk {
     pub const SPREAD_TIMING: u32 = 0x2056D;
     /// Timing lists of a button.
     pub const BUTTON_TIMING: u32 = 0x2056E;
+    /// A form field's behaviours: u32 group count, then per group u32
+    /// event code, u32 count and the behaviour UIDs.
+    pub const FORM_BEHAVIORS: u32 = 0x15601;
+    /// A behaviour's label, with the layout of the document label.
+    pub const BEHAVIOR_LABEL: u32 = 0x156E1;
     /// Animation of a page item; `00 00` for none.
     pub const ANIMATION: u32 = 0x2055F;
 }

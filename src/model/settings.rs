@@ -323,7 +323,7 @@ impl<'a> Reader<'a> {
 
     /// A label from byte `at` of `d`: u16 0x7B7B, u32 count, then flagged
     /// key and value strings.
-    fn label_at(&self, d: &[u8], at: usize) -> Result<Vec<(String, String)>, Error> {
+    pub(super) fn label_at(&self, d: &[u8], at: usize) -> Result<Vec<(String, String)>, Error> {
         let mut c = self.cursor(d);
         c.skip(at)?;
         if c.u16()? != 0x7B7B {
