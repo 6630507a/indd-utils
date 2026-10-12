@@ -55,6 +55,7 @@ Status values:
 | Language list | `Language` elements | 42 | open: no field found | IDML lists only the languages in use in 42 documents and all in the others; the language objects are the same in both kinds | |
 | Font families IDML drops | class 0x3E03 | 101 | open: no field found | unused families left out of `Fonts.xml`, but many other unused ones kept; no record byte differs; files up to 17.x only | `fonts.md` |
 | Fonts IDML adds | `Font` | 97 | not needed | IDML adds every style of a family installed on the exporting computer | `fonts.md` |
+| Family name ending in a space, DOM 12 to 20 | `Font/@Name` | 0 | open: no sample | DOM 11 keeps the space in `Name`, DOM 21 drops it (one privately held sample); the converter keeps it before DOM 21 | `fonts.md` |
 | `$ID/` PostScript names | font record | 4 pairs | open: no field found | every font of one DOM 7 set | `fonts.md` |
 | u16 0 and u16 1 after `SeparatorStyle` | TOC entry, chunk 0x11605 | – | open: never varies | one may be `SortAlphabet` (`false` in all 255 entries) | `objects.md`, table of contents styles |
 | u16 after `Level` | TOC entry, chunk 0x11605 | – | open: no pair | 0 in every paired entry, 1 in some entries of files without a pair | `objects.md`, table of contents styles |

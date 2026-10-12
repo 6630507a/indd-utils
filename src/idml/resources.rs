@@ -453,14 +453,21 @@ impl Writer<'_> {
             x.start("FontFamily")
                 .attr("Self", &id)
                 .attr("Name", &family);
+            // From DOM 21 a font's `Name` drops the spaces that end its
+            // family's name; its `Self` keeps them (fonts.md).
+            let named = if self.doc.version.major >= 21 {
+                family.trim_end()
+            } else {
+                family.as_str()
+            };
             for font in &f.fonts {
                 // A font with an empty style name is named `Regular`, and
                 // its `Self` has the family name alone (fonts.md).
                 let (name, key) = if font.style.is_empty() {
-                    (format!("{family} Regular"), base.clone())
+                    (format!("{named} Regular"), base.clone())
                 } else {
                     (
-                        format!("{family} {}", font.style),
+                        format!("{named} {}", font.style),
                         format!("{base} {}", font.style),
                     )
                 };

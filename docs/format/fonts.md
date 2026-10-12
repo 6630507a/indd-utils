@@ -99,6 +99,16 @@ in-object string, and InDesign 3.0 has no version (`big-endian.md`).
 - `Name` is the family name, a space and the style name, and `Self` is
   the family's `Self`, `Fontn` and `Name` (4,464 of 4,464, taking the
   family name as IDML writes it).
+- A family name that ends in a space: in the 2 pairs that have one
+  (DOM 11, one family each), `Name` keeps the space, so it has two
+  spaces before the style. In one privately held DOM 21 sample (one
+  family with one font), `Name` drops the family's trailing space while
+  `Self`, `FontFamily` and `FontFamily/@Name` keep it; no stored string
+  has the shorter form. Two spaces inside a style name stay in `Name`
+  in DOM 21 (29 fonts of one corpus IDML of DOM 21.3), so spaces are
+  not collapsed in general. The converter drops
+  the family's trailing spaces in `Name` from DOM 21; DOM 12 to 20 have
+  no sample.
 - `FontFamily/@Name`: 622 of 630. The other 8 have a technology suffix in
   IDML that the INDD name lacks (`Montserrat (OTF)` 6 times, `Minion Pro
   (OTF)` and `Trustpilot Display (OTF)` once each). A family whose INDD
