@@ -819,6 +819,33 @@ has `false`); one DOM 7 file has it too, and no file of DOM
 10 or later. The chunks read above do not hold it. The converter writes
 `true` for DOM 8 and 9: 97 of 97 values in the trustworthy pairs.
 
+### EPUB accessibility
+
+`EPubExportPreference` and `EPubFixedLayoutExportPreference` have nine
+attributes `EpubAccessibilityFeature`, `…Hazard`, `…Mode`,
+`…ModeSufficient`, `…Summary`, `…ConformsTo`, `…CertifiedBy`,
+`…Credentials` and `…ReportLink`. They are empty in every corpus IDML
+that has them. `EPubExportPreference` `EpubCreatePageNavigation` is
+`true` in every IDML that has it. The boundaries are by INDD header
+version, major and minor (every pair from 19.0 on):
+
+| INDD header version | Pairs | Accessibility attributes | `EpubCreatePageNavigation` |
+|---|---|---|---|
+| 19.0–19.2 | 56 | none | none |
+| 19.3 | 3 | all 9 on both elements, empty | none |
+| 19.4–19.5 | 6 | all 9, empty | `true` |
+| 20.0–21.5 | 93 | all 9, empty | `true` |
+
+The converter writes the nine attributes empty on both elements from
+19.3 and `EpubCreatePageNavigation="true"` from 19.4.
+
+No stored field is shown. Chunk 0x21A1A is 267 bytes in every file from
+17.4 to 21.5 that has it (13 files), except one 20.1 file whose six
+metadata strings are filled (770 bytes); its length does not change at
+19.3, so it holds no field for these attributes while they are empty.
+No corpus file has a non-empty value, so where one would be stored is
+not shown. No file from 17 on has chunk 0x21A25.
+
 ## Adjust layout (`AdjustLayoutPreference` in designmap.xml)
 
 From DOM 14. Chunk 0x7020 of the preferences object (26 bytes, 83

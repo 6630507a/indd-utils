@@ -67,6 +67,7 @@ are in `big-endian.md`.
 | 0xA443 | Document users: u32 count, then per user a flag byte, the name as an in-object string, u32 colour |
 | 0x1D8 | Save history: u32 count, then one record per session (below) |
 | 0x1630B | Label: u16 0x7B7B, u32 count *n*, then *n* pairs of key and value, each a flag byte and an in-object string |
+| 0x21B03 | UID list: articles, in order (below, articles) |
 
 **Document label.** IDML writes `Document/Properties/Label` with one
 `KeyValuePair` (`Key`, `Value`) per stored pair, in stored order, with
@@ -675,6 +676,84 @@ computer that exported the IDML; the converter leaves `Name` out (it is
 optional in the schema) and the measurement too. The language code of
 the save history does not decide it either (document, above). The other
 attributes are the same in every IDML (`idml-values.md`).
+
+## Articles (0x21B01)
+
+**Article list.** Chunk 0x21B03 of the document object: u32 count, then
+that many article UIDs. IDML writes one `Article` element in
+`designmap.xml` per listed UID, in list order (not UID order).
+Evidence: the 19 pairs whose IDML has `Article` elements or
+`ArticleChildrenList` (DOM 8.0, 10.1, 13.x, 20.5): the list order equals
+the IDML order for all 31 articles; the chunk is in all 19 (count 0 in
+the 6 with no articles), and its length is exactly 4 + 4 × count. In
+all 66 corpus INDD files that have article objects (INDD 7.5 to 21.2,
+203 articles), the list holds exactly the document's 0x21B01 objects.
+
+**Article object.**
+
+| Chunk | Layout | IDML |
+|---|---|---|
+| 0x13C | flag byte, in-object string | `Name` |
+| 0x21B02 | u32 count, then that many page item UIDs | one `ArticleMember` per UID, in order, `ItemRef="u<hex>"` |
+| 0x1A8 | u16 | not mapped (below) |
+
+- `Self` is `u<hex UID>`: 31 of 31 in pairs.
+- Name: the flag byte is 2 in all 203 articles of the corpus, and the
+  string ends at the chunk's end in all 203. 31 of 31 names match in
+  pairs (Latin, Hangul and Han text; segments with 0x40 and 0x80
+  encodings).
+- Members: 31 of 31 lists match the IDML `ArticleMember` `ItemRef`s in
+  order. Without chunk 0x21B02 (2 articles) or with count 0 (2 in
+  pairs), the IDML `Article` has no children. In the corpus, members
+  are page items (class 0x6201) or groups (0x401); no other class
+  appears (201 lists).
+- `ArticleMember` `Self` is the article's `Self`, `ArticleMember`, and
+  the member's index from 0: `u281ArticleMember0`, `u281ArticleMember1`.
+  44 of 44 members in pairs. No corpus IDML has an article with more
+  than 10 members, so whether the index is decimal or hexadecimal is not
+  shown; the converter writes it in decimal.
+- `ArticleExportStatus` is `true` on every `Article` of every corpus
+  IDML (31 in pairs; no other value in 3,557 IDML files). No stored
+  field is identified; the converter writes `true` (`idml-values.md`,
+  defaults).
+- Chunk 0x1A8 (u16) is in 50 of 203 articles: 1 in 47, 0 in 3. The one
+  in a pair has 1 and `ArticleExportStatus="true"`, as do the articles
+  without the chunk; it is not mapped.
+- No corpus IDML has an `Article` `Properties/Label`, so an article's
+  label chunk is not shown.
+
+**Page items.** Chunk 0x21B04 of a page item or group: u32 count and the
+UIDs of the articles the item is a member of. 44 of 44 members in pairs
+have count 1 and their article's UID; 331 other items have count 0. IDML
+has no attribute for it; the converter does not read it.
+
+**`ArticleChildrenList` on groups.** Chunk 0x21B05 of a group (class
+0x401): u32 count, then UIDs. IDML `Group` has
+`ArticleChildrenList="u<hex> u<hex> …"` with these UIDs in order,
+exactly when the group has the chunk: 68 of 68 groups in 12 pairs; no
+group has the attribute without the chunk or the chunk without the
+attribute. The list is the group's children in reverse order of chunk
+0x15B in 68 of 68 groups in pairs and 259 of 259 in the files with
+articles. Groups with the chunk also occur in documents without
+articles (4 pairs of 13.x). IDML writes the attribute directly after
+`Self` (68 of 68).
+
+**Element order.** In `designmap.xml` the `Article` elements come last,
+after `Assignment` (all 13 pairs with articles). The schema puts
+`Article` in the final interleaved group with `Assignment` and others,
+so writing them after the assignments is valid. `Article` allows
+`Self`, `Name`, `ArticleExportStatus`, `Properties/Label`, then
+`ArticleMember*` (`Self` and `ItemRef`, both required).
+
+**Versions.** Article objects occur in INDD 7.5 to 21.2. Pairs show DOM
+8.0, 10.x and 20.x; no 7.x INDD with articles has an IDML. The
+converter writes articles for every version.
+
+**Damaged input.** The converter writes each listed article once and
+skips listed UIDs that are not articles. An article without a readable
+name or member list is left out with a warning. A member that is not
+written as a page item element is left out with a warning, and so is an
+`ArticleChildrenList` UID that is not a child of the group.
 
 ## Named grids (0xCD12)
 
