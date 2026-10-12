@@ -2206,8 +2206,191 @@ than `[None]` have no `AnchoredObjectSetting`). A field has no
 
 Timing lists of buttons and animations: animation and timing, below.
 
-**Not decoded.** Button behaviours (`GotoAnchorBehavior`,
-`GotoURLBehavior`, … in 193 buttons; chunk 0x15601 lists them).
+Behaviours of buttons: button behaviours, below.
+
+### Button behaviours
+
+Evidence: 206 behaviour elements in 193 buttons of 26 pairs (all
+trustworthy, versions 8.0 to 18.0), and 547 behaviour objects in 78
+documents of the corpus (InDesign 3.0 to 18.2, both byte orders). The
+converter writes every behaviour type that has a paired sample, and
+`compare.py` finds all their values in its output except the 8
+`MovieItem` and `SoundItem` references (below).
+
+**Behaviour list (chunk 0x15601).** A form field lists its behaviours
+by event:
+
+```
+u32 groups
+  per group: u32 event code, u32 count k, k behaviour UIDs
+```
+
+- The chunk parses to its end in 712 of 712 fields (all field classes;
+  271 have 0 groups). Only buttons have groups (441 buttons).
+- Every behaviour object is listed in exactly one group of one field
+  (547 of 547). No group is empty.
+- IDML writes the behaviours as children of the button, in group order
+  and, within a group, in stored order (193 of 193 buttons). In the five
+  buttons with two groups the stored order is also ascending event
+  code, so these two orders cannot be told apart.
+- They are the last children of the button, after every `State` (193 of
+  193). The schema allows them in any order there.
+
+| Event code | `BehaviorEvent` | Paired behaviours |
+|---|---|---:|
+| 0x15602 | `MouseDown` | 32 |
+| 0x15603 | `MouseUp` | 145 |
+| 0x15604 | `MouseEnter` | 29 |
+
+Unpaired groups also have 0x15605 (31) and 0x15607 (1). Their events
+are not known: the behaviour is written without `BehaviorEvent`, with a
+warning.
+
+**Behaviour objects.** Each behaviour type is a class. IDML `Self` is
+the object's UID (206 of 206); timing targets of role 132353 reference
+these UIDs (53 of 53 resolve in the converter's output). The object has
+one data chunk, and some also chunk 0x156E1, a label with the layout of
+the document label. Chunk 0x156E1 has count 0 in all 112 occurrences,
+and no IDML behaviour has `Properties/Label`; a label with pairs would be
+written there (no sample).
+
+| Class | IDML element | Data chunk | Type code | Objects (paired elements) |
+|---|---|---|---|---:|
+| 0x15613 | `GotoFirstPageBehavior` | 0x15614 | 0x15601 | 10 (7) |
+| 0x15614 | (go to last page, no pair) | 0x15619 | 0x15602 | 2 (0) |
+| 0x15615 | `GotoNextPageBehavior` | 0x1561A | 0x15603 | 88 (21) |
+| 0x15616 | `GotoPreviousPageBehavior` | 0x1561B | 0x15604 | 37 (24) |
+| 0x1561B | `GotoURLBehavior` | 0x15622 | 0x15605 | 45 (11) |
+| 0x1562C | `MovieBehavior` | 0x1562C | 0x15606 | 99 (6) |
+| 0x15636 | `ShowHideFieldsBehavior` | 0x15634 | 0x15607 | 29 (26) |
+| 0x15664 | `ClearFormBehavior` | 0x15650 | 0x15609 | 3 (1) |
+| 0x1566E | `SubmitFormBehavior` | 0x1565A | 0x1560A | 5 (1) |
+| 0x15678 | `OpenFileBehavior` | 0x15664 | 0x1560B | 1 (1) |
+| 0x156D3 | `GotoAnchorBehavior` | 0x156F0 | 0x15617 | 27 (18) |
+| 0x156DD | `GotoNextViewBehavior` | 0x15703 | 0x15619 | 12 (12) |
+| 0x156E8 | (view zoom, no pair) | 0x1570A | 0x1561A | 5 (0) |
+| 0x156F4 | `SoundBehavior` | 0x1571C | 0x1561B | 7 (2) |
+| 0x15625 | `GotoPageBehavior` | 0x156DE | 0x1561C | 54 (30) |
+| 0x1562F | (animation, no pair) | 0x1566C | 0x1561D | 16 (0) |
+| 0x1563F | `GotoStateBehavior` | 0x1566D | 0x1561E | 80 (37) |
+| 0x15643 | `GotoNextStateBehavior` | 0x1567D | 0x1561F | 17 (4) |
+| 0x15660 | `GotoPreviousStateBehavior` | 0x15680 | 0x15620 | 8 (4) |
+| 0x156F9 | `PrintFormBehavior` | 0x15721 | 0x15621 | 2 (1) |
+
+The class and the element match in 206 of 206 paired behaviours. The
+type code is constant per class in 547 of 547 objects. The three
+classes without a pair are named by their built-in name keys
+(`$$$/Forms Action/GoTo Last Page`, `…/View Zoom`, `…/Animation`); the
+converter leaves them out with a warning.
+
+**Data chunk.** All data chunks start with a common header:
+
+| Field | Contents | Evidence |
+|---|---|---|
+| u32 | UID of the field that owns the behaviour | 206 of 206 equal to the IDML parent button |
+| u32 | type code (table above) | constant per class, 547 of 547 |
+| flag byte, in-object string | the name: flag 1 and a built-in key `$$$/Forms Action/…` | flag 1 in 547 of 547 |
+| u16 | `EnableBehavior` (1 `true`) | 1 in 547 of 547; all 206 paired are `true`. That 0 is `false` is assumed |
+
+The type's fields follow (all u32 unless stated otherwise); the chunk
+ends after them in 546 of 547 objects. The exception is a 3.0 movie
+behaviour that ends after the operation. Big-endian objects (2 files of
+8.0, 3 files of 4.0) parse to their end with the flag and string tag
+swapped (`big-endian.md`).
+
+| Type | Fields | IDML | Evidence |
+|---|---|---|---|
+| first, last, next, previous page, next view | navigation kind (0 first, 1 last, 2 previous, 3 next, 5 next view), zoom | `ZoomSetting` from the zoom | kind constant per class, 203 of 203 objects; zoom 64 of 64 |
+| go to page | navigation kind 6, page index, zoom | `PageNumber` = index + 1, `ZoomSetting` | 30 of 30 (pages 1 to 6) |
+| go to anchor | flag byte (0 in 27 of 27), in-object string, anchor u32, zoom | `FilePath`, `ZoomSetting`, `Properties/AnchorItem` (`type="long"`) | 18 of 18 |
+| go to URL | flag byte, in-object string | `URL` | 11 of 11, plain and `navto://` URLs |
+| open file | flag byte, in-object string | `FilePath` | 1 of 1 |
+| submit form | u32 (0 in 5 of 5), flag byte, in-object string | `URL` | 1 of 1 |
+| clear form, print form | none | | 1 and 1 |
+| show/hide fields | count n, n × (field UID, action: 0 hide, 1 show) | `FieldsToHide`, `FieldsToShow` | 26 of 26 |
+| go to state, next state, previous state | multi-state object UID, kind (0, 1, 2; constant per class, 105 of 105), u16 (0 in 105), u16 (1 in 45 paired, 0 in 3 unpaired), i32 state ID (-1 for next and previous) | `AssociatedMultiStateObject`; go to state `Properties/Statetype` (`type="long"`) = state ID | 45 of 45; state IDs 37 of 37 |
+| movie | movie UID, operation (0 `Play`), i32 navigation point | `Operation`, `NavigationPointID` | 6 of 6 (all -1) |
+| sound | sound UID, operation (0 `Play`, 1 `Stop`), f64 (1.0 in 5, 0.0 in 2 of 7), u32 (0 in 7) | `Operation` | 2 of 2 |
+| view zoom (no pair) | u32 (0 in 5) | | |
+
+- Zoom codes: 0 `InheritZoom` (every page navigation behaviour and 8
+  anchors), 2 `FitWindow` (10 anchors). No other code occurs. Movie
+  operation 3 (2 unpaired objects) and sound operation 2 (1) are not
+  known. An unknown code leaves the attribute out, with a warning.
+- `FieldsToHide` lists the UIDs with action 0 and `FieldsToShow` those
+  with action 1, each in stored order, as references separated by
+  spaces. With no such UID the attribute is written empty. The action
+  is 0 or 1 in all 149 corpus entries.
+- `AnchorItem` is the stored u32 when `FilePath` is not empty (5 of 5,
+  anchors in another file). When `FilePath` is empty it is 0 (13 of
+  13): the stored u32 is 0 in 8, and in 5 it is a UID with no object.
+- In the converter's output the button (206 of 206) and every
+  `AssociatedMultiStateObject` (45 of 45), `FieldsToHide` UID (124 of
+  124) and `FieldsToShow` UID (25 of 25) exist as `Self`.
+- `MovieItem` and `SoundItem` (the stored movie and sound UIDs, 6 and 2
+  of the paired values) reference `Movie` and `Sound` elements, which
+  the converter does not write. They are left out.
+- The sound's f64 and last u32 and the submit u32 have no IDML
+  attribute.
+
+**Values with no stored field.** These are the same in every sample,
+and no stored field was found for them. The converter writes them as
+defaults:
+
+| IDML | Value | Samples |
+|---|---|---|
+| `GotoAnchorBehavior` `AnchorName` | `$ID/` | 18 of 18 |
+| `GotoStateBehavior` `GoBackOnRollOff` | `false` | 37 of 37 |
+| `GotoNextStateBehavior`, `GotoPreviousStateBehavior` `LoopsToNextOrPrevious` | `true` | 8 of 8 |
+
+The second u16 of a state behaviour is 1 in all paired samples, which is
+consistent with `LoopsToNextOrPrevious="true"` but does not prove it.
+
+**`Name`.** No behaviour has a name of its own: the name is a built-in
+key with flag 1 in all 547 objects. IDML writes the key's name in the
+language of the exporting InDesign, which follows the saving edition
+(the XMP black name, saving edition): in all 26 pairs the edition
+matches the language of every behaviour name (1 English, 7 Korean and
+18 Chinese documents). The converter writes the names below and leaves
+`Name` out for a key or edition without a sample. A name with flag 0
+(no sample) would be written as stored.
+
+| Key (`$$$/Forms Action/…`) | English | Korean | Chinese |
+|---|---|---|---|
+| `GoTo Anchor` | `Go To Destination` (10) | `대상으로 이동` (8) | |
+| `GoTo First Page` | | `첫 페이지로 이동` (3) | `跳至第一頁` (4) |
+| `GoTo Next Page` | | `다음 페이지로 이동` (1) | `跳至下一頁` (20) |
+| `GoTo Previous Page` | | `이전 페이지로 이동` (1) | `跳至上一頁` (23) |
+| `GoTo Next View` | | `다음 보기로 이동` (12) | |
+| `GoTo Page` | | | `跳至頁面` (30) |
+| `GoTo URL` | | | `前往 URL` (11) |
+| `SwitchToMSOState` | | `상태로 이동` (13) | `跳至狀態` (24) |
+| `SwitchToNextMSOState` | | `다음 상태로 이동` (1) | `跳至下一個狀態` (3) |
+| `SwitchToPrevMSOState` | | `이전 상태로 이동` (1) | `跳至上一個狀態` (3) |
+| `Movie` | | | `影片` (6) |
+| `Sound` | | | `聲音` (2) |
+| `Show/Hide Fields` | | | `顯示/隱藏欄位` (26) |
+| `Open File` | | | `開啟檔案` (1) |
+| `Submit Form` | | | `送出表格` (1) |
+| `Reset Form` | | | `清除表格` (1) |
+| `Print Form` | | | `列印表格` (1) |
+
+The Chinese names are Traditional Chinese. Of the 93 trustworthy pairs
+with the black name `黑色`, 92 name their paper swatch `紙張`
+(Traditional Chinese) and one has no paper swatch; the corpus has no
+Simplified Chinese saving edition.
+
+**Attribute order.** The type's attributes first, in schema order, then
+`Name`, `EnableBehavior` and `BehaviorEvent`. Example:
+`<GotoPageBehavior Self="u762" ZoomSetting="InheritZoom" PageNumber="1" Name="跳至頁面" EnableBehavior="true" BehaviorEvent="MouseUp" />`.
+
+**Not shown.** Behaviours of other field types (the schema allows most
+types on check boxes, radio buttons, text boxes, combo boxes, list boxes
+and signature fields; the corpus has none, and the converter leaves them
+out with a warning); `AnchorItem` of a live anchor in the same document;
+URLs stored with flag 1 (6 unpaired objects, key
+`$$$/Dialog/Behaviors/GoToView/DefaultURL`, and one empty submit URL),
+which the converter leaves out.
 
 ## Animation and timing
 
