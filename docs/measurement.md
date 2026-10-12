@@ -330,6 +330,17 @@ reference IDML get no exception: an endnote or anchored form field error
 there counts as a failure, and `compare.py --all` lists those files
 separately.
 
+Jing validates each part of a package on its own, against the schema
+that the part's path selects, so a part's errors depend only on that
+schema and the part's bytes. `--valid-cache FILE` keeps the errors of
+every validated part by schema and SHA-256 (keyed also by a hash of the
+schemas, Jing and `tools/validate.sh`) and validates only the parts it
+does not list, copied into reduced packages. The counts are the same as
+validating every output; only the order of a package's messages can
+differ. compare.py reads the part selection from `tools/validate.sh`
+and stops with an error if it cannot. The file is appended one line at a
+time; a line that cannot be read (from a killed run) is skipped.
+
 ## Audit: what the converter does not read
 
 `indd audit <file>` needs no reference IDML. It converts the file while
@@ -500,7 +511,9 @@ and the Python standard library only. Options:
 | `--link-fonts` | Give DesignCraft the font files a package keeps beside the IDML, in a `Document Fonts` folder; DesignCraft reads only that folder |
 | `--bin PATH` | Another converter binary |
 | `--gaps PATH` | compare.py's `gaps.tsv` to rank first-difference keys against (default `target/compare/gaps.tsv`) |
-| `--reuse DIR` | Take A.pdf, B.pdf and DesignCraft's results from `work/` of an earlier run in DIR (which may be `--out` itself) for each triple whose converted IDML has the same bytes as in that run; render the others, which needs `--designcraft`. For measuring a change to the tool on the same renders: pass the earlier run's `--bin` |
+| `--reuse DIR` | Take A.pdf, B.pdf and DesignCraft's results from `work/` of an earlier run in DIR (which may be `--out` itself) for each triple whose converted IDML has the same bytes as in that run and whose A and B renders succeeded there; render the others, which needs `--designcraft`. For measuring a change to the tool on the same renders: pass the earlier run's `--bin` |
+| `--reuse-results DIR` | Take the verdict and measurement of each triple from `work/ID/result.pickle` of an earlier run in DIR (which may be `--out` itself) when they were made with the same key: the same converted IDML, converter stderr, `indd xmp` and `indd uids` output, tool sources, DesignCraft, `--max-pages` and `--link-fonts`. Only the other triples are measured. A triple whose A or B render failed or timed out gets no `result.pickle`, so the next run renders it again |
+| `--cache DIR` | Take the conversions from compare.py's `--cache DIR` (converting into it what is missing, with the tool's conversion timeout) instead of converting each triple |
 | `--images ID:PAGE…` | Write images of pages of the last run (below) and nothing else |
 
 Run it after converter changes, like `diff_outputs.py`: a page whose A vs
@@ -522,7 +535,7 @@ first 10 hexadecimal digits of the INDD's SHA-256; only `triples.tsv` and
 | `dropped.tsv` | Stories R shows and A does not, with frame height, point size, leading and fonts |
 | `issues.tsv` | DesignCraft issue kinds per document, without paths, for reporting to DesignCraft |
 | `summary.json` | Headline numbers: triples by verdict and reason; A vs B pixel-identical documents and pages, first-difference gap keys; DesignCraft renders, failures, times, issue kinds on font-complete documents and on all documents, and its warnings |
-| `work/ID/` | The converter's IDML, `A.pdf`, `B.pdf`, the folders they were rendered from and DesignCraft's results (`run.json`) |
+| `work/ID/` | The converter's IDML, `A.pdf`, `B.pdf`, the folders they were rendered from, DesignCraft's results (`run.json`), and the triple's verdict and measurement with their key (`result.pickle`) |
 | `images/` | With `--images ID:PAGE`: `ID-pPAGE.png` (R, A and B side by side) and `ID-pPAGE-ab.png` (A vs B: red where only A has ink, blue where only B has it) |
 
 ### Limits
@@ -535,3 +548,50 @@ first 10 hexadecimal digits of the INDD's SHA-256; only `triples.tsv` and
 - The gap keys of the first differing page are candidates. A change on a
   page can also come from a story that starts on an earlier page or from
   a value outside the elements listed above.
+
+## Check runs
+
+`tools/check.py LABEL [--base REV]` runs every check of a batch of work
+once: build, tests, clippy, the full measurement with schema validation,
+the output diff against a base revision, the README numbers, the render
+comparison, the privately held documents and the privacy checks. Most of
+the work of the separate tools is repeated conversion and the validation
+and rendering of packages that did not change; check.py does each once
+and keeps the results.
+
+| Stage | What runs | What is kept |
+|---|---|---|
+| Build | `cargo build --release`; the binary is copied to `~/.cache/indd-check/bin/HASH` | The binary of each check run |
+| Tests, clippy | `cargo test --release` (library, doc and fixture tests) and `cargo clippy --all-targets`, in the background | |
+| Measurement | `compare.py --all --exclude own/` with schema validation, `--cache` and `--valid-cache` | Every conversion, under `out/HASH/` by cache key (below); validation results by part in `valid.tsv` |
+| Base outputs | The base revision (default `origin/main`) is looked up in `revs.tsv` (commit → binary); if missing, it is built as `diff_outputs.py` builds it and converted, in the background | The base binary and its conversions |
+| Diff | Exit status, stderr and package entries of both conversions of every file, as `diff_outputs.py` compares them | `diff.tsv` |
+| README | `readme_numbers.py` from the measurement's `summary.json` | |
+| Render | `render_compare.py --cache … --reuse-results …` into `~/.cache/indd-check/render/`: only triples whose conversion changed since the last check run are measured again | Renders and results per triple |
+| Private, privacy | The privately held documents named in the local configuration are converted and validated (a failed conversion or a schema error fails the check run); `git grep` for the configured pattern; tracked binary files | |
+
+The cache is `~/.cache/indd-check/` (`INDD_CHECK_CACHE`). Each converter
+binary gets its own output folder, and the folders are not deleted
+automatically. A conversion's cache key is the INDD's SHA-256 and the
+first 8 hexadecimal digits of the SHA-256 of its file name, because the
+output contains the file name (designmap.xml's `Name`). The SHA-256 comes
+from `corpus/inventory.tsv` when the inventory lists the file with its
+present size, and is computed from the file otherwise. A conversion is
+kept only when the converter exits by itself (status 0, 1, 2 or 101 for a
+panic); a run killed by a signal or a timeout is converted again by the
+next run, and so are `indd xmp` and `indd uids` if either was killed. A
+commit enters `revs.tsv` when check.py runs on it with
+no uncommitted change under `src/` or to the Cargo files, so the next
+check run with that commit as its base reuses the outputs. The
+configuration that names private documents, the privacy pattern, the
+`--subtotal` prefixes and the DesignCraft paths is a local JSON file
+(`--config`, default `.thoughts/tools/check.json`); the module docstring
+lists its keys. The results equal those of the separate tools:
+`compare.py` gives the same tables and `summary.json` with or without
+`--cache` and `--valid-cache`, and `render_compare.py` gives the same
+tables with or without `--reuse-results`.
+
+check.py prints each stage's time and a summary, and copies the binary,
+the measurement's tables and `summary.json`, the render tables
+(`render/`, only when the render comparison succeeded), the diff, the logs and the summary (`check.txt`) to
+`~/.cache/indd-frozen-LABEL/`.

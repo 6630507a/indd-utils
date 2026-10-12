@@ -18,7 +18,7 @@ variable).
 Usage: python3 -I tools/render_compare.py --designcraft PATH [--bin PATH]
            [--jobs N] [--limit N] [--file SUBSTR] [--exclude PREFIX]...
            [--versions 13-21] [--max-pages N] [--link-fonts] [--out DIR]
-           [--gaps GAPS_TSV] [--reuse DIR]
+           [--gaps GAPS_TSV] [--reuse DIR] [--reuse-results DIR] [--cache DIR]
        python3 -I tools/render_compare.py --images ID:PAGE [ID:PAGE...] [--out DIR]
 
 Run from the repository root after `cargo build --release`. Needs
@@ -37,8 +37,19 @@ reads only that folder).
 --reuse DIR takes A.pdf, B.pdf and the renderer's results from the work/
 folder of an earlier run in DIR (which may be --out itself) instead of
 rendering, for each triple whose converted IDML has the same bytes as in
-that run; other triples are rendered, which needs --designcraft. Use it
-to measure a change to this tool on the same renders.
+that run and whose renders succeeded there; other triples are rendered,
+which needs --designcraft. Use it to measure a change to this tool on the
+same renders.
+--reuse-results DIR takes the verdict and measurement of a triple from
+work/ID/result.pickle of an earlier run in DIR when everything they depend
+on besides the corpus files is the same: this tool and compare.py, the
+DesignCraft binary, --max-pages, --link-fonts, the converted IDML, the
+converter's stderr and the output of `indd xmp` and `indd uids`. A triple
+whose A or B render failed or timed out gets no result.pickle, so it is
+rendered again.
+--cache DIR takes the conversions (and the output of `indd xmp` and `indd
+uids`) from compare.py's --cache DIR and adds to it, with the conversion
+timeout of this tool.
 
 Outputs go to --out (default target/render-compare): triples.tsv,
 docs.tsv, pages.tsv, lines.tsv, dropped.tsv, issues.tsv, summary.json, and
@@ -54,6 +65,7 @@ import argparse
 import hashlib
 import json
 import os
+import pickle
 import re
 import statistics
 import struct
@@ -109,6 +121,7 @@ def major(version):
 def candidates(args):
     """Inventory rows with an IDML and a PDF, without duplicates."""
     lo, hi = (int(x) for x in args.versions.split("-"))
+    known = compare.known_digests()
     out = []
     for r in compare.inventory():
         path = r["path"]
@@ -126,9 +139,9 @@ def candidates(args):
             skip.append(f"version outside {args.versions}")
         if v != dom:
             skip.append("IDML of another major version")
-        sha = r.get("sha256") or hashlib.sha256((CORPUS / path).read_bytes()).hexdigest()
-        out.append({"id": sha[:10], "path": path, "idml": r["idml"], "pdf": r["pdf"],
-                    "version": r["version"], "skip": skip})
+        sha = compare.digest(CORPUS / path, known)
+        out.append({"id": sha[:10], "key": compare.cache_key(CORPUS / path, sha), "path": path,
+                    "idml": r["idml"], "pdf": r["pdf"], "version": r["version"], "skip": skip})
     return out[:args.limit] if args.limit else out
 
 
@@ -157,9 +170,15 @@ def judge(cfg, t):
     indd, idml, pdf = CORPUS / t["path"], CORPUS / t["idml"], CORPUS / t["pdf"]
     pages, creator = pdf_info(pdf)
     _, _, pdf_xmp, _ = run(["pdfinfo", "-meta", str(pdf)], 120)
-    code, _, indd_xmp, _ = run([cfg["bin"], "xmp", str(indd)], 120)
-    if code != 0:
-        indd_xmp = b""
+    if cfg["cache"] and not t["skip"]:
+        rec = compare.convert_cached(cfg["bin"], indd, t["key"], cfg["cache"], True,
+                                     CONVERT_TIMEOUT)
+        xmp = Path(cfg["cache"]) / f"{t['key']}.xmp"
+        indd_xmp = xmp.read_bytes() if xmp.exists() else b""
+    else:
+        code, _, indd_xmp, _ = run([cfg["bin"], "xmp", str(indd)], 120)
+        if code != 0:
+            indd_xmp = b""
     n_idml = idml_pages(idml)
     reasons = compare.pdf_stale_reasons(indd_xmp, pdf_xmp, pages, n_idml, creator)
     res = dict(t, pdf_pages=pages, idml_pages=n_idml, creator=creator, reasons=reasons)
@@ -169,20 +188,44 @@ def judge(cfg, t):
     work.mkdir(parents=True, exist_ok=True)
     ours = work / "ours.idml"
     ours.unlink(missing_ok=True)
-    code, secs, _, err = run([cfg["bin"], "convert", str(indd), str(ours)], CONVERT_TIMEOUT)
+    if cfg["cache"]:
+        code, secs, err = rec["exit"], rec.get("secs"), rec["stderr"]
+        if code == 0:
+            try:
+                os.link(Path(cfg["cache"]) / f"{t['key']}.idml", ours)
+            except OSError:
+                ours.write_bytes((Path(cfg["cache"]) / f"{t['key']}.idml").read_bytes())
+    else:
+        code, secs, _, err = run([cfg["bin"], "convert", str(indd), str(ours)], CONVERT_TIMEOUT)
     res["convert"] = {"exit": code, "secs": secs,
                       "warnings": sum(1 for x in err.splitlines() if x.startswith("warning: ")),
                       "error": compare.error_message(err) if code != 0 else ""}
     if code != 0:
         res["reasons"] = reasons + ["conversion failed"]
         return res
-    u = subprocess.run([cfg["bin"], "uids", str(indd)], capture_output=True, text=True)
+    if cfg["cache"]:
+        uids_path = Path(cfg["cache"]) / f"{t['key']}.uids"
+        uids_out = uids_path.read_bytes() if uids_path.exists() else None
+    else:
+        u = subprocess.run([cfg["bin"], "uids", str(indd)], capture_output=True)
+        uids_out = u.stdout if u.returncode == 0 else None
     uids = None
-    if u.returncode == 0:
+    if uids_out is not None:
         uids = {}
-        for line in u.stdout.splitlines():
+        for line in uids_out.decode().splitlines():
             uid, cls = line.split("\t")
             uids[int(uid)] = None if cls == "-" else int(cls, 16)
+    # Everything the verdict and the measurement depend on besides the
+    # corpus files; with --reuse-results, an earlier result with the same
+    # key is taken as it is.
+    res["key"] = dict(cfg["result_key"], ours=sha256(ours),
+                      stderr=hashlib.sha256(err.encode()).hexdigest(),
+                      xmp=hashlib.sha256(indd_xmp).hexdigest(),
+                      uids=hashlib.sha256(uids_out).hexdigest() if uids_out is not None else None)
+    prev = earlier_result(cfg, t, res["key"])
+    if prev:
+        res["reused_result"] = prev
+        return res
     try:
         ref, mine = compare.load(idml), compare.load(ours)
     except SystemExit as e:
@@ -903,7 +946,8 @@ def sha256(path):
 
 def reuse(cfg, work, res):
     """With --reuse, take A.pdf, B.pdf and the renderer's results from the
-    earlier run when its converted IDML has the same bytes; True if taken."""
+    earlier run when its converted IDML has the same bytes and both renders
+    succeeded; True if taken."""
     if not cfg["reuse"]:
         return False
     src = Path(cfg["reuse"]) / "work" / work.name
@@ -916,7 +960,7 @@ def reuse(cfg, work, res):
         return False
     pdfs = [src / "A.pdf", src / "B.pdf"]
     if same != res["ours_sha256"] or not all(f.exists() for f in pdfs) \
-            or "A" not in prev or "B" not in prev:
+            or "A" not in prev or "B" not in prev or not renders_ok(prev):
         return False
     if src.resolve() != work.resolve():
         for f in pdfs:
@@ -1041,15 +1085,58 @@ def measure(cfg, t):
     return res
 
 
+def renders_ok(m):
+    """Whether a measurement (or none) has both renders, A and B, without a
+    failure or a timeout."""
+    return m is None or m["A"]["exit"] == 0 and m["B"]["exit"] == 0
+
+
+def earlier_result(cfg, t, key):
+    """With --reuse-results, the (verdict, measurement) of the triple in the
+    earlier run if it was judged with the same key and its renders
+    succeeded; its PDFs are linked into this run's work folder."""
+    if not cfg["reuse_results"]:
+        return None
+    src = Path(cfg["reuse_results"]) / "work" / t["id"]
+    try:
+        prev = pickle.loads((src / "result.pickle").read_bytes())
+    except (OSError, pickle.UnpicklingError, EOFError):
+        return None
+    if prev.get("key") != key or not renders_ok(prev["measured"]):
+        return None
+    work = Path(cfg["out"]) / "work" / t["id"]
+    if src.resolve() != work.resolve():
+        for name in ("A.pdf", "B.pdf"):
+            if (src / name).exists():
+                link = work / name
+                link.unlink(missing_ok=True)
+                link.symlink_to((src / name).resolve())
+        (work / "result.pickle").write_bytes(pickle.dumps(prev))
+    prev["judged"]["result_reused"] = True
+    return prev["judged"], prev["measured"]
+
+
 def process(cfg, t):
-    """Judge one triple and, if it is a same-save triple to measure, measure it."""
+    """Judge one triple and, if it is a same-save triple to measure, measure
+    it. A judged triple's verdict and measurement go to work/ID/result.pickle."""
     try:
         res = judge(cfg, t)
+        if "reused_result" in res:
+            return tuple(res["reused_result"])
+        work = Path(cfg["out"]) / "work" / t["id"]
+        (work / "result.pickle").unlink(missing_ok=True)
+        m = None
         if res["skip"] or res["reasons"]:
-            work = Path(cfg["out"]) / "work" / t["id"] / "ours.idml"
-            work.unlink(missing_ok=True)
-            return res, None
-        return res, measure(cfg, t)
+            (work / "ours.idml").unlink(missing_ok=True)
+        else:
+            m = measure(cfg, t)
+        if "key" in res and renders_ok(m):
+            # Pickled: the tables need the values' types back (tuples). A
+            # failed or timed-out render is not kept, so that the next run
+            # renders the triple again.
+            (work / "result.pickle").write_bytes(pickle.dumps(
+                {"key": res["key"], "judged": res, "measured": m}))
+        return res, m
     except Exception as e:  # report the triple and go on with the others
         import traceback
         return dict(t, reasons=[f"tool error: {type(e).__name__}: {e}"[:300]],
@@ -1401,6 +1488,11 @@ def main():
                     help="compare.py's gaps.tsv, to rank first-difference keys against")
     ap.add_argument("--reuse", metavar="DIR",
                     help="take the renders of an earlier run in DIR where the IDML is the same")
+    ap.add_argument("--reuse-results", metavar="DIR",
+                    help="take the verdicts and measurements of an earlier run in DIR where "
+                         "the IDML and the converter's other output are the same")
+    ap.add_argument("--cache", metavar="DIR",
+                    help="take the conversions from compare.py's --cache DIR (and add to it)")
     ap.add_argument("--images", nargs="+", metavar="ID:PAGE",
                     help="write images of these pages of an earlier run, and nothing else")
     args = ap.parse_args()
@@ -1421,6 +1513,9 @@ def main():
            "out": str(out.resolve()), "tmp": str(tmp.resolve()), "link_fonts": args.link_fonts,
            "max_pages": args.max_pages,
            "reuse": str(Path(args.reuse).resolve()) if args.reuse else None,
+           "reuse_results": str(Path(args.reuse_results).resolve()) if args.reuse_results
+           else None,
+           "cache": str(compare.cache_dir(args.bin, args.cache).resolve()) if args.cache else None,
            "tools": {"converter": args.bin,
                      "repository": subprocess.run(["git", "-C", str(ROOT), "describe", "--always",
                                                    "--dirty"], capture_output=True,
@@ -1428,6 +1523,12 @@ def main():
                      "designcraft": version,
                      "designcraft_sha256": sha256(dc)[:16] if dc else None,
                      "renders_reused_from": str(Path(args.reuse).resolve()) if args.reuse else None}}
+    tool = hashlib.sha256(Path(__file__).read_bytes() + Path(compare.__file__).read_bytes())
+    cfg["result_key"] = {"tool": tool.hexdigest()[:16],
+                         "designcraft": cfg["tools"]["designcraft_sha256"],
+                         "max_pages": args.max_pages, "link_fonts": args.link_fonts}
+    if cfg["cache"]:
+        Path(cfg["cache"]).mkdir(parents=True, exist_ok=True)
     start = time.time()
     todo = candidates(args)
     results = {}
@@ -1443,6 +1544,10 @@ def main():
             if n % 25 == 0:
                 print(f"  {n}/{len(todo)} triples", file=sys.stderr)
     judged = [results[t["id"]][0] for t in todo]
+    if cfg["reuse_results"]:
+        print(f"verdicts and measurements reused: "
+              f"{sum(1 for r in judged if r.get('result_reused'))} of "
+              f"{sum(1 for r in judged if not r.get('skip'))} judged triples", file=sys.stderr)
     measured = [results[t["id"]][1] for t in todo if results[t["id"]][1] is not None]
     report(args, cfg, judged, measured, time.time() - start)
 

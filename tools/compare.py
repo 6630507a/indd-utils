@@ -13,11 +13,28 @@ Usage: python3 -I tools/compare.py [--limit N] [--detail TAG]... [--file SUBSTR]
                                    [--schemas DIR --jing DIR] [--bin PATH]
                                    [--all] [--exclude PREFIX]... [--jobs N]
                                    [--shortfalls N] [--trusted] [--stale N]
-                                   [--gaps N] [--out DIR]
+                                   [--gaps N] [--out DIR] [--cache DIR]
+                                   [--valid-cache FILE] [--subtotal PREFIX]...
 Run from the repository root after `cargo build --release`. With --schemas
 and --jing, also validates every output with tools/validate.sh, in batches
 of VALIDATE_BATCH files (one Jing run per schema for a whole batch). --bin runs
 another converter binary, for example a copy of the previous build.
+Conversions run in --jobs threads and the comparisons of pairs in --jobs
+worker processes.
+
+--cache DIR keeps every conversion in DIR/<first 16 hex digits of the
+binary's SHA-256>/, named by cache_key (the SHA-256 of the INDD file and
+a short hash of its file name): the package (.idml), a record of the exit
+status, stderr and the package's entries (.json), and for pairs the output
+of `indd xmp` and `indd uids`. A later run with the same binary reuses them
+instead of converting. A run killed by a signal or a timeout is not kept.
+--valid-cache FILE keeps schema validation results by part (schema and
+SHA-256 of the part; for the same schemas, Jing and tools/validate.sh) and
+validates only parts it does not list, in reduced packages; the results
+are the same as validating every package.
+--subtotal PREFIX also reports the pairs whose path does not start with
+PREFIX (conversion failures, schema failures, story text, value coverage)
+and adds them to summary.json under "subtotals".
 
 --all also converts every other INDD and INDT file under corpus/ (any
 version, either byte order, without a usable IDML), validates the output
@@ -57,15 +74,18 @@ import fnmatch
 import functools
 import hashlib
 import json
+import multiprocessing
 import os
 import re
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import Counter, defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -112,12 +132,28 @@ def inventory():
     return [dict(zip(cols, line.split("\t"))) for line in lines[1:]]
 
 
+def known_digests():
+    """Path under corpus/ -> (SHA-256, size in bytes) of the files the
+    inventory lists with a digest, for digest()."""
+    return {r["path"]: (r["sha256"], r.get("bytes")) for r in inventory() if r.get("sha256")}
+
+
 def digest(indd, known):
-    """SHA-256 of a corpus file, from the inventory if it lists the file."""
+    """SHA-256 of a corpus file. The inventory's digest is taken when the
+    inventory lists the file with its present size (the inventory records no
+    modification time); otherwise the file is read."""
     path = str(indd.relative_to(ROOT / "corpus"))
-    if path in known:
-        return known[path]
-    return hashlib.sha256(indd.read_bytes()).hexdigest()
+    sha, size = known.get(path, (None, None))
+    if sha and size == str(indd.stat().st_size):
+        return sha
+    return file_sha256(indd)
+
+
+def cache_key(indd, sha):
+    """The name of a conversion under a --cache folder: the INDD's SHA-256
+    and a short hash of its file name, which the output contains
+    (designmap.xml's Name)."""
+    return f"{sha}-{hashlib.sha256(os.fsencode(indd.name)).hexdigest()[:8]}"
 
 
 def pairs(limit, substr, exclude, seen, known):
@@ -855,6 +891,243 @@ def value_coverage(p, ref, ours):
     p.extra_docs.update(k for k, v in extra.items() if v)
 
 
+def file_sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(1 << 20):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def cache_dir(binary, root):
+    """The folder of a converter binary's outputs under a --cache root:
+    the first 16 hex digits of the binary's SHA-256."""
+    return Path(root) / file_sha256(binary)[:16]
+
+
+def package_entries(path):
+    """[name, SHA-256 of the content] of each entry of a package, in order;
+    None if it is not a readable ZIP file."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            return [[i.filename, hashlib.sha256(z.read(i)).hexdigest()] for i in z.infolist()]
+    except (OSError, zipfile.BadZipFile):
+        return None
+
+
+# Exit statuses of the converter itself (src/main.rs; 101 is a panic). Any
+# other status means the process was killed, so the run is not kept.
+OWN_EXITS = (0, 1, 2, 101)
+
+
+def run_killable(cmd, timeout, text):
+    """subprocess.run with capture; (exit status or "timeout", stdout, stderr)."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=text, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return "timeout", "" if text else b"", ""
+    return r.returncode, r.stdout, r.stderr
+
+
+def convert_cached(binary, indd, key, folder, pair, timeout=None):
+    """Convert `indd` to folder/KEY.idml and return the conversion's record,
+    or the record of an earlier conversion into the same folder. The record
+    (folder/KEY.json) has the exit status, stderr, seconds and, for an output, the
+    package's SHA-256 and entries (package_entries). With `pair`, also runs
+    `indd xmp` and `indd uids`, whose output goes to folder/KEY.xmp and
+    folder/KEY.uids (left out when the command fails). A conversion that
+    times out (exit status "timeout") or is killed by a signal is returned
+    but not recorded, and neither is the xmp and uids step if one of them is."""
+    folder = Path(folder)
+    rec_path, out = folder / f"{key}.json", folder / f"{key}.idml"
+    tmp = folder / f"{key}.{os.getpid()}.{threading.get_ident()}.tmp"
+    try:
+        rec = json.loads(rec_path.read_text())
+    except (OSError, ValueError):
+        rec = None
+    changed = False
+    if rec is None or rec["exit"] == 0 and not out.exists():
+        part = tmp.with_suffix(".idml")
+        t = time.time()
+        code, _, stderr = run_killable([binary, "convert", indd, part], timeout, True)
+        rec = {"exit": code, "stderr": stderr, "secs": round(time.time() - t, 2)}
+        if code == 0:
+            rec["package"] = file_sha256(part)
+            rec["entries"] = package_entries(part)
+            part.replace(out)
+        else:
+            part.unlink(missing_ok=True)
+        if code not in OWN_EXITS:
+            return rec
+        changed = True
+    if pair and "meta" not in rec:
+        killed = False
+        for cmd in ("xmp", "uids"):
+            code, stdout, _ = run_killable([binary, cmd, indd], timeout, False)
+            if code == 0:
+                tmp.write_bytes(stdout)
+                tmp.replace(folder / f"{key}.{cmd}")
+            killed = killed or code not in OWN_EXITS
+        if not killed:
+            rec["meta"] = True
+            changed = True
+    if changed:
+        tmp.write_text(json.dumps(rec))
+        tmp.replace(rec_path)
+    return rec
+
+
+def read_uids(path):
+    """UID -> class (None for a slot without a class) from the output of
+    `indd uids`, or None if there is none."""
+    try:
+        text = Path(path).read_text()
+    except OSError:
+        return None
+    uids = {}
+    for line in text.splitlines():
+        uid, cls = line.split("\t")
+        uids[int(uid)] = None if cls == "-" else int(cls, 16)
+    return uids
+
+
+def compare_job(rel, name, idml, folder, key, show):
+    """Compare one converted pair (convert_cached); runs in a worker
+    process. (Stats, stale reasons, examples)."""
+    folder = Path(folder)
+    xmp = folder / f"{key}.xmp"
+    indd_date = modify_date(xmp.read_bytes()) if xmp.exists() else None
+    uids = read_uids(folder / f"{key}.uids")
+    ref, ours = load(idml), load(folder / f"{key}.idml")
+    reasons = stale_reasons(indd_date, idml_modify_date(idml), uids, ref[0], ref[1], ours[1])
+    examples = defaultdict(list)
+    p = compare_pair(name, ref, ours, examples, show)
+    p.pairs = [(rel, p.reproduced, p.values)]
+    return p, reasons, examples
+
+
+@functools.cache
+def schema_selection():
+    """The parts tools/validate.sh validates and their schemas, read from
+    the script: ({part: schema}, {folder: schema of its direct .xml
+    children})."""
+    text = (ROOT / "tools" / "validate.sh").read_text()
+    folders = re.search(r"\bfor d in ([^;]+); do", text)
+    parts = re.search(r"\bfor p in ((?:[^;\\]|\\\n)+); do", text)
+    if not folders or not parts or "-name designmap.xml" not in text:
+        raise SystemExit("tools/validate.sh: part selection not found; "
+                         "update compare.schema_selection")
+    single = {"designmap.xml": "designmap.rnc"}
+    single.update({p + ".xml": p + ".rnc" for p in parts[1].replace("\\", " ").split()})
+    by_folder = {f: f"{f}/{n}.rnc" for f, n in (d.split(":") for d in folders[1].split())}
+    return single, by_folder
+
+
+def part_schema(name):
+    """The schema tools/validate.sh validates a package entry with, or None."""
+    single, by_folder = schema_selection()
+    if name in single:
+        return single[name]
+    folder, _, rest = name.partition("/")
+    if folder in by_folder and rest.endswith(".xml") and "/" not in rest:
+        return by_folder[folder]
+    return None
+
+
+class ValidationCache:
+    """Schema errors of package parts (--valid-cache). Jing validates each
+    part on its own against the schema its path selects, so the errors of a
+    part depend only on the schema and the part's bytes. The file is a TSV
+    of a key of the schemas, Jing and tools/validate.sh; the schema; the
+    part's SHA-256; and its errors as a JSON list, without the part name.
+    Results under another key are ignored."""
+
+    def __init__(self, path, schemas, jing):
+        h = hashlib.sha256((ROOT / "tools" / "validate.sh").read_bytes())
+        for d in (Path(schemas), Path(jing)):
+            for f in sorted(d.rglob("*")):
+                if f.is_file():
+                    h.update(str(f.relative_to(d)).encode() + b"\0" + f.read_bytes())
+        self.key = h.hexdigest()[:16]
+        self.path = Path(path)
+        self.known = {}
+        # Parts taken from the cache and validated, in this run.
+        self.hits = self.validated = 0
+        # A run killed while appending leaves at most a broken last line,
+        # which is skipped.
+        if self.path.exists():
+            for line in self.path.read_text(errors="replace").splitlines():
+                try:
+                    key, schema, sha, errs = line.split("\t", 3)
+                    if key == self.key:
+                        self.known[(schema, sha)] = json.loads(errs)
+                except ValueError:
+                    continue
+
+    def add(self, results):
+        """Record {(schema, part SHA-256): errors}, one write per line."""
+        new = {k: e for k, e in results.items() if k not in self.known}
+        self.known.update(new)
+        if new:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.path, "ab", buffering=0) as f:
+                if f.tell():
+                    with open(self.path, "rb") as r:
+                        r.seek(-1, os.SEEK_END)
+                        if r.read(1) != b"\n":
+                            f.write(b"\n")
+                for k, e in new.items():
+                    f.write(f"{self.key}\t{k[0]}\t{k[1]}\t{json.dumps(e)}\n".encode())
+
+
+def validate_cached(outs, args, cache):
+    """Schema errors of packages given as (path, entries or None; see
+    package_entries), as {path: [messages]} like validate(). With a
+    ValidationCache, only parts it does not know are validated: they are
+    copied into reduced packages for one tools/validate.sh run."""
+    if cache is None:
+        return validate([p for p, _ in outs], args)
+    listed = []
+    todo = {}   # (schema, part SHA-256) -> (package, part name)
+    for path, entries in outs:
+        if entries is None:
+            entries = package_entries(path)
+        parts = [(n, (part_schema(n), s)) for n, s in entries or [] if part_schema(n)]
+        listed.append((path, parts))
+        for n, key in parts:
+            if key in cache.known:
+                cache.hits += 1
+            elif key not in todo:
+                todo[key] = (path, n)
+    if todo:
+        by_package = defaultdict(dict)
+        for key, (path, n) in todo.items():
+            by_package[path][n] = key
+        found = {key: [] for key in todo}
+        with tempfile.TemporaryDirectory() as tmp:
+            reduced = {}
+            for i, (path, names) in enumerate(by_package.items()):
+                r = Path(tmp) / f"{i}.idml"
+                with zipfile.ZipFile(path) as z, zipfile.ZipFile(r, "w") as w:
+                    for n in names:
+                        w.writestr(n, z.read(n))
+                reduced[str(r)] = names
+            for r, msgs in validate(list(reduced), args).items():
+                for m in msgs:
+                    part, _, rest = m.partition(":")
+                    if part not in reduced[r]:
+                        raise SystemExit(f"tools/validate.sh: unexpected message {m}")
+                    found[reduced[r][part]].append(rest)
+        cache.add(found)
+        cache.validated += len(todo)
+    errs = {}
+    for path, parts in listed:
+        msgs = [f"{n}:{m}" for n, key in parts for m in cache.known[key]]
+        if msgs:
+            errs[str(path)] = msgs
+    return errs
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
@@ -882,7 +1155,13 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "target" / "compare"),
                     help="directory for pairs.tsv and gaps*.tsv (default target/compare)")
     ap.add_argument("--jobs", type=int, default=os.cpu_count() or 1,
-                    help="conversions and schema validations run in parallel")
+                    help="conversions, comparisons and schema validations run in parallel")
+    ap.add_argument("--cache", metavar="DIR",
+                    help="keep the conversions in DIR/<binary hash>/ and reuse them")
+    ap.add_argument("--valid-cache", metavar="FILE",
+                    help="schema validation results by part SHA-256, reused and extended")
+    ap.add_argument("--subtotal", action="append", default=[], metavar="PREFIX",
+                    help="also report the pairs whose path does not start with PREFIX")
     args = ap.parse_args()
     check = bool(args.schemas and args.jing)
 
@@ -895,34 +1174,20 @@ def main():
     warnings = Counter()
     warned_files = Counter()
     seen = set()
-    known = {r["path"]: r["sha256"] for r in inventory() if r.get("sha256")}
+    known = known_digests()
     todo = pairs(args.limit, args.file, args.exclude, seen, known)
     others = unpaired(args.file, args.exclude, seen, known) if args.all else []
     other_failures = []
-    pool = ThreadPoolExecutor(max(1, args.jobs))
+    # Paths under corpus/ of the paired files that fail, and of those whose
+    # output is invalid, for --subtotal.
+    failed_paths = {}
+    invalid_paths = set()
+    vcache = ValidationCache(args.valid_cache, args.schemas, args.jing) \
+        if check and args.valid_cache else None
 
-    def convert(indd, out):
-        """Convert one file; runs in the pool."""
-        return subprocess.run([args.bin, "convert", indd, out], capture_output=True, text=True)
-
-    def convert_pair(indd, idml, out):
-        """Convert one paired file and read what stale_reasons needs: the
-        INDD's UIDs and the ModifyDate of both files; runs in the pool."""
-        r = convert(indd, out)
-        x = subprocess.run([args.bin, "xmp", indd], capture_output=True)
-        u = subprocess.run([args.bin, "uids", indd], capture_output=True, text=True)
-        uids = None
-        if u.returncode == 0:
-            uids = {}
-            for line in u.stdout.splitlines():
-                uid, cls = line.split("\t")
-                uids[int(uid)] = None if cls == "-" else int(cls, 16)
-        dates = (modify_date(x.stdout) if x.returncode == 0 else None, idml_modify_date(idml))
-        return r, dates, uids
-
-    def count_warnings(r):
+    def count_warnings(stderr):
         kinds = set()
-        for line in r.stderr.splitlines():
+        for line in stderr.splitlines():
             if line.startswith("warning: "):
                 kind = warning_kind(line[len("warning: "):])
                 warnings[kind] += 1
@@ -932,82 +1197,104 @@ def main():
 
     other_invalid = []
     invalid = []
+    # Paired outputs whose only schema errors are InDesign's endnote
+    # markup: (name, errors, normalised errors, reference IDML, path). They
+    # pass if the reference has the same errors.
+    endnote_pending = []
     with tempfile.TemporaryDirectory() as tmp:
-        jobs = [pool.submit(convert, indd, Path(tmp) / f"other{n}.idml")
-                for n, indd in enumerate(others)]
-        jobs += [pool.submit(convert_pair, indd, idml, Path(tmp) / f"pair{n}.idml")
-                 for n, (indd, idml) in enumerate(todo)]
-        # Converted files waiting for validation: (output, name, list of
-        # invalid files it belongs to). They are validated in batches, which
-        # bounds the space the unpacked outputs take.
-        to_check = []
+        folder = cache_dir(args.bin, args.cache) if args.cache else Path(tmp)
+        folder.mkdir(parents=True, exist_ok=True)
+        # (INDD, reference IDML or None, cache key of the INDD)
+        items = [(indd, None) for indd in others] + todo
+        items = [(indd, idml, cache_key(indd, digest(indd, known))) for indd, idml in items]
+        threads = ThreadPoolExecutor(max(1, args.jobs))
+        procs = ProcessPoolExecutor(max(1, args.jobs),
+                                    mp_context=multiprocessing.get_context("forkserver"))
+        # A pair is compared in a worker process as soon as it is converted.
+        jobs = {}
+        lock = threading.Lock()
 
-        # Paired outputs whose only schema errors are InDesign's endnote
-        # markup: (name, errors, normalised errors, reference IDML). They
-        # pass if the reference has the same errors.
-        endnote_pending = []
+        def comparison(n):
+            indd, idml, key = items[n]
+            with lock:
+                if n not in jobs:
+                    jobs[n] = procs.submit(compare_job, str(indd.relative_to(ROOT / "corpus")),
+                                           indd.name, idml, folder, key, args.show)
+                return jobs[n]
 
-        def flush(at_least):
-            if len(to_check) < at_least:
-                return
-            errs = validate([out for out, _, _, _ in to_check], args)
-            for out, name, bad, ref in to_check:
+        def compare_when_converted(n):
+            def done(f):
+                if not f.exception() and f.result()["exit"] == 0:
+                    comparison(n)
+            return done
+
+        # Pairs are converted first, so that their comparisons start early.
+        order = sorted(range(len(items)), key=lambda n: items[n][1] is None)
+        conversions = {}
+        for n in order:
+            indd, idml, key = items[n]
+            conversions[n] = threads.submit(convert_cached, args.bin, indd, key, folder,
+                                            idml is not None)
+            if idml is not None:
+                conversions[n].add_done_callback(compare_when_converted(n))
+        # Files are taken in batches of VALIDATE_BATCH: one tools/validate.sh
+        # run per batch. Without --cache, the batch's outputs are deleted
+        # after it, which bounds the space they take.
+        for start in range(0, len(items), VALIDATE_BATCH):
+            batch = range(start, min(start + VALIDATE_BATCH, len(items)))
+            recs = {n: conversions[n].result() for n in batch}
+            errs = validate_cached([(folder / f"{items[n][2]}.idml", recs[n]["entries"])
+                                    for n in batch if recs[n]["exit"] == 0],
+                                   args, vcache) if check else {}
+            for n in batch:
+                indd, idml, key = items[n]
+                rec, out = recs[n], folder / f"{key}.idml"
+                rel = str(indd.relative_to(ROOT / "corpus"))
+                count_warnings(rec["stderr"])
+                if rec["exit"] != 0:
+                    if idml is None:
+                        other_failures.append((indd.name, rec["stderr"].strip()))
+                    else:
+                        failures.append((indd.name, rec["stderr"].strip()))
+                        failed_paths[rel] = rec["stderr"].strip()
+                    continue
                 e = errs.get(str(out))
                 if e:
-                    known = endnote_errors(out, e) if ref else None
-                    if known:
-                        endnote_pending.append((name, e, known, ref))
+                    endnotes = endnote_errors(out, e) if idml else None
+                    if endnotes:
+                        endnote_pending.append((indd.name, e, endnotes, idml, rel))
+                    elif idml:
+                        invalid.append((indd.name, e))
+                        invalid_paths.add(rel)
                     else:
-                        bad.append((name, e))
-                out.unlink(missing_ok=True)
-            to_check.clear()
-        for n, indd in enumerate(others):
-            r = jobs[n].result()
-            count_warnings(r)
-            out = Path(tmp) / f"other{n}.idml"
-            if r.returncode != 0:
-                other_failures.append((indd.name, r.stderr.strip()))
-            elif check:
-                to_check.append((out, indd.name, other_invalid, None))
-                flush(VALIDATE_BATCH)
-                continue
-            out.unlink(missing_ok=True)
-        for n, (indd, idml) in enumerate(todo):
-            out = Path(tmp) / f"pair{n}.idml"
-            r, (indd_date, idml_date), indd_uids = jobs[len(others) + n].result()
-            count_warnings(r)
-            if r.returncode != 0:
-                failures.append((indd.name, r.stderr.strip()))
-                continue
-            if check:
-                to_check.append((out, indd.name, invalid, idml))
-            ref = load(idml)
-            ours = load(out)
-            reasons = stale_reasons(indd_date, idml_date, indd_uids, ref[0], ref[1], ours[1])
-            p = compare_pair(indd.name, ref, ours, examples, args.show)
-            rel = str(indd.relative_to(ROOT / "corpus"))
-            p.pairs = [(rel, p.reproduced, p.values)]
-            pair_rows.append((rel, p, reasons))
-            every.add(p)
-            if reasons:
-                stale.append((rel, reasons))
-            else:
-                trusted.add(p)
-            if check:
-                flush(VALIDATE_BATCH)
-            else:
-                out.unlink(missing_ok=True)
-        pool.shutdown()
-        flush(1)
+                        other_invalid.append((indd.name, e))
+                if idml is not None:
+                    p, reasons, ex = comparison(n).result()
+                    for k, found in ex.items():
+                        room = (max(args.show, 3) if k == ("Story", "text") else args.show) \
+                            - len(examples[k])
+                        examples[k] += found[:max(room, 0)]
+                    pair_rows.append((rel, p, reasons))
+                    every.add(p)
+                    if reasons:
+                        stale.append((rel, reasons))
+                    else:
+                        trusted.add(p)
+                if not args.cache:
+                    out.unlink(missing_ok=True)
+        threads.shutdown()
+        procs.shutdown()
         endnote_passed = []
         if endnote_pending:
-            ref_errs = validate([ref for _, _, _, ref in endnote_pending], args)
-            for name, e, known, ref in endnote_pending:
+            refs = [(ref, None) for _, _, _, ref, _ in endnote_pending]
+            ref_errs = validate_cached(refs, args, vcache)
+            for name, e, endnotes, ref, rel in endnote_pending:
                 theirs = endnote_errors(ref, ref_errs.get(str(ref), [])) or set()
-                if known <= theirs:
+                if endnotes <= theirs:
                     endnote_passed.append(name)
                 else:
                     invalid.append((name, e))
+                    invalid_paths.add(rel)
 
     rejected, failures = split_rejected(failures)
     other_rejected, other_failures = split_rejected(other_failures)
@@ -1023,6 +1310,9 @@ def main():
             print(f"  {name}: {len(errs)} errors, {errs[:3]}")
         print(f"schema errors accepted (endnote and anchored form field markup, as in "
               f"the reference): {len(endnote_passed)} files")
+        if vcache:
+            print(f"schema validation: {vcache.validated} parts validated, "
+                  f"{vcache.hits} known from {args.valid_cache}")
     if args.all:
         print(f"files without a reference: {len(others)}, rejected: {len(other_rejected)}"
               + (f" ({rejection_kinds(other_rejected)})" if other_rejected else "")
@@ -1084,13 +1374,49 @@ def main():
     for ex in examples[("Story", "text")]:
         print("  story mismatch:", ex)
     headline(args, every, trusted, pair_rows)
+    subtotals = {prefix: subtotal(prefix, check, todo, pair_rows, failed_paths, invalid_paths)
+                 for prefix in args.subtotal}
     write_summary(Path(args.out) / "summary.json", args, check,
                   (todo, failures, rejected, invalid),
                   (others, other_failures, other_rejected, other_invalid),
-                  every, trusted)
+                  every, trusted, subtotals)
 
 
-def write_summary(path, args, check, paired, unpaired_files, every, trusted):
+def subtotal(prefix, check, todo, pair_rows, failed_paths, invalid_paths):
+    """Print and return the numbers of the pairs whose path under corpus/
+    does not start with `prefix` (--subtotal)."""
+    def inside(rel):
+        return not rel.startswith(prefix)
+    files = sum(1 for indd, _ in todo if inside(str(indd.relative_to(ROOT / "corpus"))))
+    every, trusted = Stats(), Stats()
+    for rel, p, reasons in pair_rows:
+        if inside(rel):
+            every.add(p)
+            if not reasons:
+                trusted.add(p)
+    failed = [(rel, err) for rel, err in failed_paths.items() if inside(rel)]
+    failures = split_rejected(failed)[1]
+    invalid = sum(1 for rel in invalid_paths if inside(rel)) if check else None
+    print(f"\nwithout {prefix}: conversion failures: {len(failures)} of {files} paired files")
+    if check:
+        print(f"without {prefix}: schema validation failures: {invalid}")
+    print(f"without {prefix}: story text: {every.story_line()}")
+    print(f"without {prefix}: trustworthy pairs: {trusted.docs} of {every.docs}; "
+          f"story text: {trusted.story_line()}")
+    print(f"without {prefix}: value coverage: trustworthy pairs {trusted.coverage():.2%} "
+          f"({trusted.reproduced} of {trusted.values} values), all pairs {every.coverage():.2%}")
+    return {"files": files, "failures": len(failures), "invalid": invalid,
+            "trustworthy": pair_numbers(trusted), "all_pairs": pair_numbers(every)}
+
+
+def pair_numbers(st):
+    """The numbers of a set of pairs in summary.json."""
+    return {"pairs": st.docs, "values": st.values, "reproduced": st.reproduced,
+            "stories": {"exact": st.story_ok["ok"], "differ": st.story_ok["wrong"],
+                        "missing": st.story_ok["missing"]}}
+
+
+def write_summary(path, args, check, paired, unpaired_files, every, trusted, subtotals):
     """Write the numbers of the README's "Current numbers" section, and the
     options they were measured with, as JSON (tools/readme_numbers.py).
     `paired` and `unpaired_files` are (files, failures, rejected,
@@ -1105,19 +1431,16 @@ def write_summary(path, args, check, paired, unpaired_files, every, trusted):
                 "rejected": [error_message(err) for _, err in rejected],
                 "invalid": len(invalid) if check else None}
 
-    def pairs(st):
-        return {"pairs": st.docs, "values": st.values, "reproduced": st.reproduced,
-                "stories": {"exact": st.story_ok["ok"], "differ": st.story_ok["wrong"],
-                            "missing": st.story_ok["missing"]}}
-
     summary = {
         "options": {"all": args.all, "validated": check, "exclude": args.exclude,
                     "limit": args.limit, "file": args.file},
         "paired": files(paired, True),
         "others": files(unpaired_files, args.all),
-        "trustworthy": pairs(trusted),
-        "all_pairs": pairs(every),
+        "trustworthy": pair_numbers(trusted),
+        "all_pairs": pair_numbers(every),
     }
+    if subtotals:
+        summary["subtotals"] = subtotals
     path.write_text(json.dumps(summary, indent=1) + "\n")
 
 

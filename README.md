@@ -196,6 +196,9 @@ in nearly every sample, so that their INDD fields cannot be located.
   two revisions over the corpus; a refactoring must change none.
 - `python3 -I tools/readme_numbers.py --schemas DIR --jing DIR` runs the
   full measurement and updates [Current numbers](#current-numbers).
+- `python3 -I tools/check.py LABEL [--base REV]` runs all of these checks
+  once for a batch of work, with the conversions, schema validations and
+  renders of earlier runs reused (`docs/measurement.md`, "Check runs").
 
 - `python3 -I tools/inventory.py corpus/` lists each sample's InDesign
   version and whether it has a matching IDML file.
