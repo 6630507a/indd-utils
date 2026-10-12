@@ -281,16 +281,26 @@ impl Writer<'_> {
             // Every IDML from 7.5 has the tagged PDF settings, none of 7.0
             // (preferences.md, tagged PDF).
             // Every IDML from DOM 10.1 has the fixed-layout HTML export
-            // settings, none of 10.0 (idml-values.md, document elements).
+            // settings, none of 10.0, and from DOM 21.1 the HTML5 export
+            // settings, with the values all of them have (idml-values.md,
+            // document elements).
             let present = values::present(&format!("Document/{tag}"), major).or_else(|| {
                 let since = match tag {
                     "TaggedPDFPreference" => (major, doc.version.minor) >= (7, 5),
                     "HTMLFXLExportPreference" => self.dom_version() >= (10, 1),
+                    "Html5ExportPreference" => self.dom_version() >= (21, 1),
                     _ => false,
                 };
                 since.then(|| {
                     values::element(&format!("Document/{tag}"), major).unwrap_or_else(|| Node {
                         tag: tag.to_string(),
+                        attrs: match tag {
+                            "Html5ExportPreference" => vec![
+                                ("TextExportFormat".into(), "HtmlTag".into()),
+                                ("CopyFonts".into(), "false".into()),
+                            ],
+                            _ => Vec::new(),
+                        },
                         ..Node::default()
                     })
                 })
@@ -363,6 +373,7 @@ impl Writer<'_> {
             "AdjustLayoutPreference",
             "HTMLFXLExportPreference",
             "PublishExportPreference",
+            "Html5ExportPreference",
         ] {
             singleton(&mut x, tag);
         }

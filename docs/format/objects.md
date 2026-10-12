@@ -1341,12 +1341,26 @@ is which:
 
 So type 3 is drawn from a path of the picture (`PhotoshopPath`) and type 4
 from the frame (`GraphicFrame`). The converter leaves the
-`ContourOption` of other codes out. IDML from DOM 21.4 also
-writes `ContourTolerance="5"`, `ContourThreshold="25"`,
-`ContourAlphaIndex="0"` and `ContourPathIndex="-1"` (on 211 elements of
-the trustworthy pairs).
-They may be the f64 at 4, the u8 at 12 and two i16 at 13 and 15, but no
-sample has another value, so the converter does not write them.
+`ContourOption` of other codes out.
+
+**Contour parameters.** From DOM 21.4 every `ContourOption` has
+`ContourTolerance="5"`, `ContourThreshold="25"`,
+`ContourAlphaIndex="0"` and `ContourPathIndex="-1"`, after
+`ContourPathName`: 211 of 211 elements in the 12 corpus IDML files of
+DOM 21.4 and 21.5 (graphics, frames, object styles and preferences), all
+with these values. No `ContourOption` of an earlier DOM has them (32,227
+elements in the 1,444 IDML files of DOM 7 to 21.3). Every `ContourOption` of DOM 21.4 and
+later also has `ContourType`. The contour chunks (graphic 0x373D, object
+style 0x3777, preferences 0x373F) may hold them as the f64 at 4, the u8
+at 12 and the i16 at 13 and 15, in the layout of the clipping chunk
+0x2C1A (f64 tolerance, u8 threshold, i16 index): the 102 contour chunks
+of the DOM 21.4–21.5 pairs hold 5, 25, 0 and −1 there. Over all 1,462
+pairs, the only other value is f64 8 in 72 object style chunks (24
+files of DOM 10.0, 10.2 and 17.0), whose IDML has no `ContourTolerance`,
+so the assignment is not shown. The converter writes the four values on every `ContourOption`
+with a `ContourType` from DOM 21.4. A `ContourOption` with only
+`ContourPathName` has no sample from DOM 21.4; the converter writes it
+without them.
 
 `ContourPathName` is not in the chunk. Every `ContourOption` of the
 corpus IDMLs has it (25,551 of 25,551 in 1,693 IDML). It is `$ID/` in
@@ -2478,7 +2492,7 @@ value), and otherwise the values that differ from its object style (406
 items, of `[None]` or of styles with the category on). Where it writes
 every value, it also writes `LockPosition="false"` and
 `AnchorSpaceAbove="0"`, the values of every such element in the corpus
-(`idml-values.md`).
+(`idml-values.md`, anchored object settings of page items).
 
 **Items inside an anchored item.** The children of an anchored group
 (and the items inside them) have an `AnchoredObjectSetting` too. IDML
@@ -2770,6 +2784,17 @@ are `true`. Trustworthy pairs: `EmitCss` 5,031 of 5,031,
 `IncludeClass` 4,019 of 4,019 (every value is `true`). One 12.1
 document has an object style tag map (`ObjectStyleExportTagMap`); it is
 not written.
+
+**ARIA label.** From DOM 21.2 every `ObjectStyle`, `[None]` included,
+has `EpubAriaLabel=""` and `EpubAriaLabelSourceType="NoneARIALabel"`,
+after `EpubAriaRole`: 178 of 178 styles in the 44 corpus IDML files of
+DOM 21.2 to 21.5. The 60 styles of the 15 files of DOM 21.1 have
+neither, nor does any style of an earlier DOM. No value varies, so no
+INDD field is identified; the converter writes both on every object
+style from DOM 21.2. They are attributes of the style. Its
+`ObjectExportOption` has `EpubAriaLabel="$ID/"` and
+`EpubAriaLabelSourceType="AutomaticARIALabel"` from DOM 21.1, as page
+items do (`idml-values.md`, export options of page items).
 
 **Optical margin (chunk 0x285B).** The f64 at 2 is `OpticalMarginSize`
 and the u16 at 12 `OpticalMarginAlignment` (1 = true), as in the story

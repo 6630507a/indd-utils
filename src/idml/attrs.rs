@@ -41,6 +41,20 @@ pub(super) const FITTING_ATTRS: [(u32, &str, Kind); 7] = [
     ),
 ];
 
+/// The anchored object settings of `anchored_settings`.
+pub(super) const ANCHORED_SETTINGS: [&str; 10] = [
+    "AnchoredPosition",
+    "SpineRelative",
+    "PinPosition",
+    "AnchorPoint",
+    "HorizontalAlignment",
+    "HorizontalReferencePoint",
+    "VerticalAlignment",
+    "VerticalReferencePoint",
+    "AnchorXoffset",
+    "AnchorYoffset",
+];
+
 /// IDML attributes of anchored object settings, in IDML order, for the
 /// codes the samples show. See `docs/format/objects.md`, anchored object
 /// settings.
@@ -175,7 +189,18 @@ pub(super) struct ContourOption {
     pub contour: Option<Contour>,
     /// `ContourPathName`: `$ID/` or the name of an alpha channel.
     pub path_name: String,
+    /// Whether to write `CONTOUR_PARAMS` with a contour type (DOM 21.4 on).
+    pub params: bool,
 }
+
+/// The contour parameters of every typed `ContourOption` from DOM 21.4
+/// (`docs/format/objects.md`, text wrap, contour).
+pub(super) const CONTOUR_PARAMS: [(&str, &str); 4] = [
+    ("ContourTolerance", "5"),
+    ("ContourThreshold", "25"),
+    ("ContourAlphaIndex", "0"),
+    ("ContourPathIndex", "-1"),
+];
 
 /// IDML `TextWrapOffset` attributes of a text wrap (0 without one).
 pub(super) fn text_wrap_offsets(wrap: Option<&TextWrap>) -> Vec<(&'static str, String)> {

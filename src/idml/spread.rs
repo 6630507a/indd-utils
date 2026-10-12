@@ -643,6 +643,11 @@ impl Writer<'_> {
                     }
                 }
                 x.attr("ContourPathName", &o.path_name);
+                if o.params && o.contour.is_some() {
+                    for (k, v) in CONTOUR_PARAMS {
+                        x.attr(k, v);
+                    }
+                }
                 x.end();
             }
         }
@@ -998,24 +1003,18 @@ impl Writer<'_> {
                 .and_then(|s| s.enabled.as_ref())
                 .is_some_and(|on| !on.contains(&0xCA2F));
             let style = style.and_then(|s| s.anchor.as_ref()).filter(|_| !off);
-            // The values every IDML has where it writes them all
-            // (idml-values.md, anchored object settings).
-            let observed = if off {
-                values::when_written(
-                    &format!("{tag}/AnchoredObjectSetting"),
-                    self.doc.version.major,
-                )
-            } else {
-                Vec::new()
-            };
             let mut attrs: Vec<(&str, String)> = anchored_settings(d)
                 .into_iter()
                 .filter(|a| style.is_none_or(|s| !anchored_settings(s).contains(a)))
                 .collect();
-            for (k, v) in &observed {
-                if !attrs.iter().any(|(n, _)| n == k) {
-                    attrs.push((k.as_str(), v.clone()));
-                }
+            // A complete element has two more values (idml-values.md,
+            // anchored object settings of page items).
+            if ANCHORED_SETTINGS
+                .iter()
+                .all(|n| attrs.iter().any(|(k, _)| k == n))
+            {
+                attrs.push(("LockPosition", "false".into()));
+                attrs.push(("AnchorSpaceAbove", "0".into()));
             }
             if !attrs.is_empty() {
                 x.empty("AnchoredObjectSetting", &attrs);
@@ -1954,15 +1953,17 @@ mod tests {
         assert_eq!(alpha.inside_edges, Some(true));
         // A damaged chunk is left out.
         assert_eq!(Contour::read(enc, &chunk[..17]), None);
-        let write = |contour: Option<Contour>, path_name: &str| {
+        let write_with = |contour: Option<Contour>, path_name: &str, params: bool| {
             let mut x = Xml::new();
             let o = ContourOption {
                 contour,
                 path_name: path_name.into(),
+                params,
             };
             Writer::text_wrap_preference(&mut x, None, Some(o));
             x.finish()
         };
+        let write = |contour, path_name| write_with(contour, path_name, false);
         let out = write(Some(alpha), "Alpha 1");
         let at = out
             .find(
@@ -1974,6 +1975,14 @@ mod tests {
         assert!(out.find("</Properties>").unwrap() < at);
         // A frame whose object style turns the wrap category on.
         assert!(write(None, "$ID/").contains("<ContourOption ContourPathName=\"$ID/\" />"));
+        // DOM 21.4 on: the parameters follow a contour type only.
+        assert!(write_with(Some(Contour::DEFAULT), "$ID/", true).contains(
+            "ContourPathName=\"$ID/\" ContourTolerance=\"5\" ContourThreshold=\"25\" \
+             ContourAlphaIndex=\"0\" ContourPathIndex=\"-1\" />"
+        ));
+        assert!(
+            write_with(None, "$ID/", true).contains("<ContourOption ContourPathName=\"$ID/\" />")
+        );
         // An unknown code leaves the contour out.
         let unknown = Contour {
             kind: 7,

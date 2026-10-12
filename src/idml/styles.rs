@@ -344,6 +344,12 @@ impl Writer<'_> {
             for (k, v) in &node.attrs {
                 x.attr(k, v);
             }
+            // The values of every object style from DOM 21.2 (objects.md,
+            // object style settings).
+            if self.dom_version() >= (21, 2) {
+                x.attr("EpubAriaLabel", "")
+                    .attr("EpubAriaLabelSourceType", "NoneARIALabel");
+            }
             let mut props: Vec<Node> = node
                 .child("Properties")
                 .map_or(Vec::new(), |p| p.children.clone());
@@ -828,6 +834,9 @@ impl Writer<'_> {
                     attrs.push(("IncludeInsideEdges", inside.to_string()));
                 }
                 attrs.push(("ContourPathName", "$ID/".into()));
+                if self.dom_version() >= (21, 4) {
+                    attrs.extend(CONTOUR_PARAMS.map(|(k, v)| (k, v.into())));
+                }
                 node.set(&["TextWrapPreference", "ContourOption"], attrs);
             }
         }

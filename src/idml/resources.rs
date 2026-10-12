@@ -1243,7 +1243,11 @@ impl Writer<'_> {
         // The contour of new graphics (preferences.md, text wrap).
         if let Some(t) = prefs.contour.and_then(|c| contour_type(c.kind)) {
             let i = ours_of(&mut ours, "TextWrapPreference");
-            ours[i].set(&["ContourOption"], vec![("ContourType", t.into())]);
+            let mut attrs = vec![("ContourType", t.into())];
+            if self.dom_version() >= (21, 4) {
+                attrs.extend(CONTOUR_PARAMS.map(|(k, v)| (k, v.into())));
+            }
+            ours[i].set(&["ContourOption"], attrs);
         }
         ours.push(self.footnote_option());
         if let Some(c) = prefs.baseline_frame_grid_color.and_then(frame_grid_color) {

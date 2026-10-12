@@ -156,6 +156,16 @@ where the INDD gives no value:
 | `Story`, `XmlStory` | `UserText="true"` where written | 11 on; IDML has it from version 11.2 (none of the 3,184 stories of DOM 10.0 to 11.0, every story from 11.2), and the converter writes it from INDD version 11.2 |
 | `InCopyExportOption` of stories | `IncludeGraphicProxies="true"`, `IncludeAllResources="false"` | 7 on |
 
+From DOM 21.5 every `Story` and `XmlStory` also has
+`AiGeneratedStory="false"`, `AiModelName="$ID/"`,
+`AiDigitalSourceType="$ID/"`, `AiFirstParty="false"` and
+`AiTextContent="$ID/"`, after `Self`: 62 of 62 stories and 4 of 4 XML
+stories in the 4 corpus IDML files of DOM 21.5. No story of an earlier
+DOM has them (694 stories and 58 XML stories of DOM 21.0 to 21.4, and
+none of the earlier files). The value file is keyed by major version,
+so the converter writes these values by the DOM version it writes (DOM
+version, below).
+
 The other story values are read from the INDD: `StoryTitle`,
 `StoryDirection` and the optical margin from story chunks, with the
 value of every story without the chunk when it is absent, and for the
@@ -210,18 +220,31 @@ and `ExportPolicy="NoAutoExport"`. `RenditionData="Actual"` is on every
 link from DOM 13 on (3,043 of 3,043) and on none before (1,656 of
 1,656); the converter writes it from version 13.
 
+Every `Link` of DOM 21.5 has `AiGeneratedAsset="false"`,
+`AiFullyGeneratedAsset="false"` and `AiC2paArchiveData="$ID/"`, after
+`Self` (12 of 12 links in 3 IDML files; the fourth file of DOM 21.5 has
+no link). Every `Link` of DOM 21.4 and 21.5 has `SourceObjectName=""`
+(75 of 75 links in 11 files); no link of DOM 21.0 to 21.3 has it (170
+links), nor does any link of an earlier DOM. No value varies, so no INDD
+field is identified. The converter writes them by the DOM version it
+writes.
+
 ## Anchored object settings of page items
 
-Where IDML writes every anchored object setting of an item (its object
-style turns the category off; `objects.md`, anchored object settings),
-the element also has `LockPosition="false"` and `AnchorSpaceAbove="0"`.
-`tools/element_values.py` collects them as values of the
-`AnchoredObjectSetting` of text frames, rectangles, ovals, polygons,
-graphic lines and groups that have them (`WHEN_WRITTEN`): every such
-element of the corpus IDML files has these two values. The value file
-has them for the DOM versions whose files show them (text frames and
-ovals 8 to 20, rectangles 12 to 20, graphic lines 13); the converter
-writes them from there.
+Where IDML writes every anchored object setting of a page item (the ten
+attributes `AnchoredPosition`, `SpineRelative`, `PinPosition`,
+`AnchorPoint`, `HorizontalAlignment`, `HorizontalReferencePoint`,
+`VerticalAlignment`, `VerticalReferencePoint`, `AnchorXoffset` and
+`AnchorYoffset`; `objects.md`, anchored object settings), the element
+also has `LockPosition="false"` and `AnchorSpaceAbove="0"`. This holds
+for every item type and DOM version: 1,158 of 1,158 such elements in the
+1,456 distinct IDML files of the corpus pairs (918 text frames, 142
+ovals, 41 graphic lines, 32 polygons, 25 rectangles; DOM 8 to 21.2). No
+element with fewer values has either attribute (633 of 633, including
+all 125 group and 10 text box elements). No DOM 7 item has a complete
+element; the preferences and object styles of DOM 7 have both
+attributes. The converter adds the two values wherever it writes all ten
+settings.
 
 ## Object styles other than the root
 
@@ -374,6 +397,7 @@ all of them have; the converter writes it in the order of the IDML files.
 | `AdjustLayoutPreference` | 14 | 4 | `EnableAdjustLayout`, `EnableAutoAdjustMargins`, `AllowFontSizeAndLeadingAdjustment` |
 | `HTMLFXLExportPreference` | 10.1 | both | |
 | `PublishExportPreference` | 11 | 7 | `ImageExportResolution`, `PublishPdf`, `CoverPage`, `PublishDescription`, `PublishFileName`, `PublishPageRange` |
+| `Html5ExportPreference` | 21.1 | both | |
 
 `HTMLFXLExportPreference` (`EpubPageRange=""`,
 `EpubPageRangeFormat="ExportAllPages"`) is in every IDML from DOM 10.1
@@ -382,6 +406,12 @@ DOM 10.0 (10 files) or earlier. The converter writes it by the DOM
 version it writes (10.1 for files of version 10 last saved by 10.1 or
 later). Over the trustworthy pairs it reproduces the element in 1,139
 of 1,139 documents.
+
+`Html5ExportPreference` (`TextExportFormat="HtmlTag"`,
+`CopyFonts="false"`) is in every IDML from DOM 21.1, directly after
+`PublishExportPreference`: 59 of 59 distinct corpus files of DOM 21.1 to
+21.5. No file of DOM 21.0 or earlier has it (1,397 files). The values
+never vary. The converter writes it by the DOM version it writes.
 
 The values left out here are read from the INDD or follow the rules of
 `preferences.md` (adjust layout; EPUB, HTML and Publish Online export;

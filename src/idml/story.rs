@@ -148,6 +148,14 @@ impl Writer<'_> {
     /// The start tag of a `Story` or `XmlStory` with its attributes.
     pub(super) fn story_start(&self, x: &mut Xml, tag: &str, s: &Story) {
         x.start(tag).attr("Self", uref(Some(s.uid)));
+        // The values of every story from DOM 21.5 (idml-values.md, stories).
+        if self.dom_version() >= (21, 5) {
+            x.attr("AiGeneratedStory", "false")
+                .attr("AiModelName", "$ID/")
+                .attr("AiDigitalSourceType", "$ID/")
+                .attr("AiFirstParty", "false")
+                .attr("AiTextContent", "$ID/");
+        }
         // `UserText` from version 11.2, with the value every IDML has
         // (docs/format/idml-values.md, stories).
         let v = &self.doc.version;

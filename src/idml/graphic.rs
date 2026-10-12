@@ -146,9 +146,15 @@ impl Writer<'_> {
     /// `docs/format/objects.md`, links.
     pub(super) fn link(&self, x: &mut Xml, link: &Link) {
         let major = self.doc.version.major;
-        x.start("Link")
-            .attr("Self", uref(Some(link.uid)))
-            .attr("AssetURL", "$ID/")
+        x.start("Link").attr("Self", uref(Some(link.uid)));
+        // The values every link has from DOM 21.5 (idml-values.md, links).
+        let dom = self.dom_version();
+        if dom >= (21, 5) {
+            x.attr("AiGeneratedAsset", "false")
+                .attr("AiFullyGeneratedAsset", "false")
+                .attr("AiC2paArchiveData", "$ID/");
+        }
+        x.attr("AssetURL", "$ID/")
             .attr("AssetID", "$ID/")
             .attr("LinkResourceURI", link.uri.clone());
         if let Some(f) = &link.format {
@@ -196,6 +202,10 @@ impl Writer<'_> {
                 link.pdf_identifier.unwrap_or(0).to_string(),
             );
         }
+        // Every link has it from DOM 21.4 (idml-values.md, links).
+        if dom >= (21, 4) {
+            x.attr("SourceObjectName", "");
+        }
         x.end();
     }
 
@@ -241,6 +251,7 @@ impl Writer<'_> {
         Some(ContourOption {
             contour: Some(c),
             path_name,
+            params: self.dom_version() >= (21, 4),
         })
     }
 
