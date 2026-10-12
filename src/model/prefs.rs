@@ -71,6 +71,29 @@ pub struct Prefs {
     /// 0x22608, as frames): u16 span at 2, f64 minimum spacing at 4, f64
     /// space between at 12.
     pub frame_footnotes: Option<(bool, f64, f64)>,
+    /// `ViewPreference` `RulerOrigin` (chunk 0x808).
+    pub ruler_origin: RulerOrigin,
+}
+
+/// The point guide locations are measured from (`preferences.md`, ruler
+/// origin; `objects.md`, guides).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RulerOrigin {
+    #[default]
+    Spread,
+    Page,
+    Spine,
+}
+
+impl RulerOrigin {
+    /// The IDML enumeration value.
+    pub fn idml(self) -> &'static str {
+        match self {
+            RulerOrigin::Spread => "SpreadOrigin",
+            RulerOrigin::Page => "PageOrigin",
+            RulerOrigin::Spine => "SpineOrigin",
+        }
+    }
 }
 
 /// The colour of baseline frame grids (`preferences.md`, baseline frame
@@ -755,6 +778,7 @@ mod id {
     pub const COLUMN_GUIDES_LOCKED: u32 = 0x56B;
     pub const SHOW_FRAME_EDGES: u32 = 0x593;
     pub const SHOW_RULERS: u32 = 0x803;
+    pub const RULER_ORIGIN: u32 = 0x808;
     pub const SHOW_INVISIBLES: u32 = 0xCAC7;
     pub const COLOR_PROFILES: u32 = 0x7C04;
     pub const COLOR_INTENT: u32 = 0x7C08;
@@ -2437,7 +2461,18 @@ impl Reader<'_> {
                 self.enc().f64_at(&d, 12)?,
             ))
         });
+        // u16 code; without the chunk (or with a code the samples do not
+        // show) the origin is the spread.
+        let ruler_origin = match get(id::RULER_ORIGIN)? {
+            Some(d) if d.len() == 2 => match self.cursor(&d).u16()? {
+                1 => RulerOrigin::Page,
+                2 => RulerOrigin::Spine,
+                _ => RulerOrigin::Spread,
+            },
+            _ => RulerOrigin::Spread,
+        };
         Ok(Prefs {
+            ruler_origin,
             baseline_frame_grid_color,
             frame_column_rule,
             frame_footnotes,

@@ -33,6 +33,7 @@ Status values:
 | `PageRange` | `PrintPreference` | 1,251 | open: no field found | `AllPages` in 1,239, absent in 12; the stored page text does not separate the groups | `preferences.md` |
 | `HighlightKeeps`, `HighlightSubstitutedFonts` | `TextPreference` | 1,251 | open: no field found | `false` and `true` with 4 and 3 exceptions; no chunk in any file | `preferences.md` |
 | Highlight flags without chunks 0xCA62, 0xCAD3, 0xCAD4 | `TextPreference` | 5 | open: not explained | written `false`; 4 or 5 documents have every highlight on | `preferences.md`, flags |
+| `RulerOrigin` without chunk 0x808 | `ViewPreference` | 8 | open: no field found | `PageOrigin` in 8 of the 1,217 trustworthy pairs without the chunk (13 of 1,505 files); written `SpreadOrigin`, so the vertical guides of their later pages are off by the page widths (37 values in 3 pairs) | `preferences.md`, ruler origin |
 | `GuideSnaptoZone` | `ViewPreference` | 1,251 | open: no field found | `4`; 5 documents have `2` | |
 | `ShowNotes` | `ViewPreference` | 1,251 | open: no field found | 19 `false` | |
 | `ViewAfterExport` | `XMLExportPreference` | 1,251 | open: never varies | 1 `true` | |
@@ -70,6 +71,7 @@ Status values:
 
 | Item | Where | Files | Status | Content and reason | See |
 |---|---|---:|---|---|---|
+| Guides at the spread origin | chunk 0x3308 of guides | 5 | open: not explained | 25 page guides of one collection whose IDML `Location` puts them at 0 in spread coordinates, away from their stored positions | `objects.md`, guides |
 | `GuideColor` | chunk 0x3308 of guides | 41 pairs | open: no field found | the u32 at 22 is 6 for guides that IDML colours `Cyan`, `Blue`, `Purple`, `LightBlue` or `BrickRed`; not the layer colour, not `RulerGuidesColor` | `objects.md`, guides |
 | `InsetSpacing` list exceptions | chunk 0x3723 of text frames | 2 pairs | open: not explained | 4 frames of 5 straight points that IDML writes as a list, although a frame that is not a plain rectangle has one number | `objects.md`, text frame preferences |
 | `KnockedOut` exceptions | attribute 0x1EB6F | 3 | open: not explained | 380 items that store nothing, style `false`, and no IDML value | `transparency.md`, drop shadow knockout |

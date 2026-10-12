@@ -67,6 +67,17 @@ Unit codes: 0x1201 `Points`, 0x1202 `Picas`, 0x1203 `Inches`, 0x1205
 horizontal, vertical, line and stroke units match 653 of 654 pairs (one
 stale pair differs).
 
+**Ruler origin.** Chunk 0x808 (u16) is `RulerOrigin`: 0 `SpreadOrigin`,
+1 `PageOrigin`, 2 `SpineOrigin`. Over the 1,556 distinct corpus files
+with an IDML (stale pairs included), all 51 with the chunk match (22
+`SpreadOrigin`, 28 `PageOrigin`, 1 `SpineOrigin`); in the 1,252
+trustworthy pairs, 35 of 35 (20 and 15). Without the chunk, 1,492 of
+1,505 files have `SpreadOrigin` (1,209 of 1,217 trustworthy pairs). The
+other 13 (8 trustworthy, InDesign 8.0 to 21.2) have `PageOrigin`, and
+no field was found that separates them (`unknowns.md`). The converter
+writes `SpreadOrigin` without the chunk. Guide locations depend on the
+origin (`objects.md`, guides).
+
 ## Flags in their own chunks
 
 | Chunk | Attribute | Absent | Matches (trustworthy, all) |

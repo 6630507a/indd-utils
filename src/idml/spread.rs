@@ -1360,12 +1360,49 @@ impl Writer<'_> {
         }
     }
 
-    /// A ruler guide. `origin` is the top-left corner of the spread's
-    /// pages, from which IDML measures `Location` with the ruler origin
-    /// `SpreadOrigin`. See `docs/format/objects.md`.
-    /// `page_index` is IDML `PageIndex` (see `docs/format/objects.md`).
-    pub(super) fn guide(x: &mut Xml, g: &Guide, origin: (f64, f64), page_index: i64) {
-        let (left, top) = origin;
+    /// The point a guide's `Location` is measured from, by the ruler
+    /// origin: the top-left corner of the spread's pages (`origin`); with
+    /// `PageOrigin` the corner of the guide's own page; with
+    /// `SpineOrigin` a vertical guide on a spread of two pages is
+    /// measured from the left edge of the right page.
+    /// See `docs/format/objects.md`.
+    fn guide_origin(
+        &self,
+        s: &Spread,
+        page: &Page,
+        g: &Guide,
+        own_page: bool,
+        origin: (f64, f64),
+    ) -> (f64, f64) {
+        match self.doc.prefs.ruler_origin {
+            RulerOrigin::Page if own_page => spread_origin(std::slice::from_ref(page)),
+            RulerOrigin::Spine if !g.horizontal && s.pages.len() == 2 => {
+                let left = |q: &Page| spread_origin(std::slice::from_ref(q)).0;
+                let right = left(&s.pages[0]).max(left(&s.pages[1]));
+                (right, origin.1)
+            }
+            _ => origin,
+        }
+    }
+
+    /// A ruler guide. `origin` is the point IDML measures `Location`
+    /// from (see `guide_origin`) and `shift` the spread's translation;
+    /// `page_index` is IDML `PageIndex`. See `docs/format/objects.md`.
+    pub(super) fn guide(
+        x: &mut Xml,
+        g: &Guide,
+        origin: (f64, f64),
+        shift: (f64, f64),
+        page_index: i64,
+    ) {
+        // Both points are taken to pasteboard coordinates before the
+        // difference, which reproduces IDML's rounding (a location of 0
+        // rather than 1e-13).
+        let (from, by) = if g.horizontal {
+            (origin.1, shift.1)
+        } else {
+            (origin.0, shift.0)
+        };
         x.start("Guide")
             .attr("Self", uref(Some(g.uid)))
             .attr(
@@ -1376,10 +1413,7 @@ impl Writer<'_> {
                     "Vertical"
                 },
             )
-            .attr(
-                "Location",
-                num(g.position - if g.horizontal { top } else { left }),
-            )
+            .attr("Location", num((g.position + by) - (from + by)))
             .attr("FitToPage", g.fit_to_page.to_string());
         // The only stored value in the samples, with the only IDML value.
         if g.view_threshold == 0.05 {
@@ -1712,6 +1746,7 @@ impl Writer<'_> {
                 position - binding + 1
             };
             let extent = pages_extent(&s.pages);
+            let shift = (s.transform.0[4], s.transform.0[5]);
             for g in &s.guides {
                 let own_page = s.pages.iter().any(|q| q.uid == g.owner);
                 // IDML leaves out a guide of the spread that lies outside
@@ -1726,7 +1761,8 @@ impl Writer<'_> {
                 }
                 if g.owner == p.uid || (first && !own_page) {
                     let index = if own_page { from_spine } else { 0 };
-                    Self::guide(&mut x, g, origin, index);
+                    let from = self.guide_origin(s, p, g, own_page, origin);
+                    Self::guide(&mut x, g, from, shift, index);
                 }
             }
             self.page_layout(&mut x, p);
@@ -1976,7 +2012,7 @@ mod tests {
             overridden: None,
         };
         let mut x = Xml::new();
-        Writer::guide(&mut x, &guide, origin, -1);
+        Writer::guide(&mut x, &guide, origin, (0.0, 0.0), -1);
         let out = x.finish();
         assert!(
             out.contains("Orientation=\"Horizontal\" Location=\"735.5\""),
@@ -1994,7 +2030,17 @@ mod tests {
             ..guide
         };
         let mut x = Xml::new();
-        Writer::guide(&mut x, &vertical, origin, 1);
+        Writer::guide(&mut x, &vertical, origin, (0.0, 0.0), 1);
         assert!(x.finish().contains("Location=\"640\""));
+        // A guide on the origin: through the spread's translation the
+        // difference is 0, as in IDML, not -1.1e-13.
+        let on_edge = Guide {
+            position: -600.0,
+            ..vertical
+        };
+        let mut x = Xml::new();
+        let edge = (20.0000000000001 - 620.0, 0.0);
+        Writer::guide(&mut x, &on_edge, edge, (-5.684341886080802e-14, 0.0), 1);
+        assert!(x.finish().contains("Location=\"0\""));
     }
 }

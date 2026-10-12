@@ -389,23 +389,52 @@ another save) and are not used. For the 71:
   IDML, so the fields are not proven. The converter writes
   `ViewThreshold="5"` only for 0.05 and `GuideColor` `Cyan` only for 6.
 
-**Location.** IDML measures `Location` from the ruler origin in
-`ViewPreference` (`RulerOrigin`). With `SpreadOrigin`, it is the stored
-position minus the top edge (horizontal guides) or the left edge
-(vertical guides) of the spread's pages, each page's edge being its
-`GeometricBounds` corner mapped by its `ItemTransform`. This holds for
-66 of 66 guides in files with `SpreadOrigin`, including pages whose
-bounds do not start at 0 and two-page spreads. One file has
-`SpineOrigin`: its vertical guides on a two-page spread are measured
-from the spine (x = 0) instead (2 guides), its other 3 guides agree with
-the rule above.
+**Location.** IDML measures `Location` from the ruler origin
+(`ViewPreference` `RulerOrigin`, chunk 0x808 of the preferences,
+`preferences.md`). It is the stored position minus the origin's y
+(horizontal guides) or x (vertical guides). A page's corner is its
+`GeometricBounds` corner mapped by its `ItemTransform`. The origin is:
 
-The ruler origin was not found in the INDD: 235 of the 240 corpus IDML
-files have `SpreadOrigin`, one `SpineOrigin` and four `PageOrigin`, and
-no field separates them in the objects searched (every class with at most
-40 objects in a file, apart from page items and text). The converter writes
-`ViewPreference` with `RulerOrigin="SpreadOrigin"` and measures guide
-locations from the spread, so the two agree.
+- `SpreadOrigin`: the top-left corner of the spread's pages (the
+  smallest left and top edge of any page).
+- `PageOrigin`: the top-left corner of the guide's own page; for a
+  guide of the spread, the corner of the spread's pages as with
+  `SpreadOrigin`.
+- `SpineOrigin`: for vertical guides on a spread of two pages, the left
+  edge of the right page (x = 0 in the samples); otherwise as with
+  `SpreadOrigin`.
+
+IDML computes the difference after adding the spread's translation
+(`ItemTransform` of the spread) to both values:
+`(position + t) − (origin + t)`. This only changes the last bits, but
+it decides whether a guide on the origin gets 0 or a remainder such as
+−1.1e-13. Over the 1,252 trustworthy pairs it gives the IDML number
+exactly for 8,580 of the 9,127 guides in `SpreadOrigin` documents
+(7,782 without the translation); the others differ only in the last
+digits.
+
+**Evidence.** All 553 guides of the 23 trustworthy pairs with
+`PageOrigin` follow the rule: 435 page guides (304 horizontal, 131
+vertical, on spreads of one, two and five pages) and 118 spread guides
+(116 horizontal, 2 vertical on one-page spreads). The 9,127 guides of
+`SpreadOrigin` documents follow it but for 25 (below), including pages
+whose bounds do not start at 0. The one `SpineOrigin` file (a stale
+pair, InDesign 15.0) has three vertical guides: on a two-page master
+spread at stored −552.76 and 42.52 with IDML −552.76 and 42.52 (from
+x = 0), on a one-page master spread at stored 0 with IDML 297.64 (from
+the page's left edge at −297.64); its horizontal guides are measured
+from the top of the pages. No spread of more than two pages with
+`SpineOrigin` was seen.
+
+**Guides at the spread origin.** In 5 trustworthy pairs (InDesign
+17.0, one collection), 5 guides each that belong to a page with
+`FitToPage="true"` have `Location` values that put them at 0 in spread
+coordinates: vertical guides stored at −457.14 and −58.47 get the
+spine's position, a horizontal guide stored at −9.92 gets y = 0. The
+stored positions lie inside their pages. No field of the guide record
+or the guide's other chunks separates them from the other guides of
+the same documents (`unknowns.md`). The converter writes the stored
+position.
 
 **Spread guides outside the pages.** IDML leaves out a guide owned by
 the spread when its position lies outside the bounding box of the

@@ -934,11 +934,10 @@ impl Writer<'_> {
             }
             set("DocumentPreference", ours);
         }
-        // Guide locations are written measured from the spread (see
-        // `guide`), so the ruler origin is stated rather than read.
+        // Guide locations are measured from the ruler origin (see `guide`).
         set(
             "ViewPreference",
-            vec![("RulerOrigin", "SpreadOrigin".into())],
+            vec![("RulerOrigin", self.doc.prefs.ruler_origin.idml().into())],
         );
         // Values read from the preferences object (`model::prefs`).
         let prefs = &self.doc.prefs;

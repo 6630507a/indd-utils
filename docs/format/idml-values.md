@@ -659,7 +659,8 @@ For example `TextDefault` keeps 140 of its 318 values,
   `PageHeight`, `PageWidth`, `FacingPages`, `Intent`, `PageBinding` and
   the four bleed offsets of `DocumentPreference`. The converter writes its own values
   for these and adds the observed values for the rest of the element.
-  `ViewPreference` gets `RulerOrigin="SpreadOrigin"`, as before.
+  `ViewPreference` gets the `RulerOrigin` read from the INDD
+  (`preferences.md`).
 - `AppliedGridObjectStyle` of `PageItemDefault`, which names a style
   other than a root style that the package need not contain.
 - Values first seen in a later version that fewer than 10 files show.

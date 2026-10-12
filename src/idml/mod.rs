@@ -34,7 +34,7 @@ use styles::*;
 
 use std::collections::BTreeMap;
 
-use crate::model::prefs::PrefProp;
+use crate::model::prefs::{PrefProp, RulerOrigin};
 use crate::model::{
     Alternative, Attrs, ChangeEntry, Contour, Document, Form, FormKind, Graphic, GraphicKind,
     Guide, ItemKind, ItemProps, Link, Matrix, Note, Orientation, Page, PageItem, Path, Section,
