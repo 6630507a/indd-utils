@@ -30,6 +30,8 @@ pub struct Document {
     pub last_session_version: Option<(u32, u32)>,
     /// The third number of that version (`16.1.0.20` gives 0).
     pub last_session_patch: Option<u32>,
+    /// The fourth number of that version, the build (`16.1.0.20` gives 20).
+    pub last_session_build: Option<u32>,
     /// The platform of the last session: 0 or 3.
     pub last_session_platform: Option<u16>,
     /// The document's label (chunk 0x1630B): key and value, as IDML
@@ -334,6 +336,7 @@ impl<'a> Reader<'a> {
         };
         let last_session_version = session_number(0).zip(session_number(1));
         let last_session_patch = session_number(2);
+        let last_session_build = session_number(3);
         let numbering_lists = self.numbering_lists().unwrap_or_else(|e| {
             self.warn(format!("numbering lists left out: {e}"));
             Vec::new()
@@ -409,6 +412,7 @@ impl<'a> Reader<'a> {
             last_session_code,
             last_session_version,
             last_session_patch,
+            last_session_build,
             last_session_platform,
             label,
             numbering_lists,

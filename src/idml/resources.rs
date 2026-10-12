@@ -470,6 +470,10 @@ impl Writer<'_> {
     pub(super) fn fonts(&self) -> String {
         let mut x = Xml::new();
         self.package_root(&mut x, "Fonts");
+        // InDesign 7.0 up to build 522 writes every PostScript name as a
+        // built-in key; builds 535 and later do not (fonts.md).
+        let postscript_key = self.doc.last_session_version == Some((7, 0))
+            && self.doc.last_session_build.is_some_and(|b| b <= 522);
         for f in self.doc.fonts.values() {
             let id = format!("di{:x}", f.uid);
             let (family, base) = self.family_names(f);
@@ -503,7 +507,14 @@ impl Writer<'_> {
                     .attr("Self", format!("{id}Fontn{key}"))
                     .attr("FontFamily", &base)
                     .attr("Name", &name)
-                    .attr("PostScriptName", &font.postscript_name)
+                    .attr(
+                        "PostScriptName",
+                        if postscript_key && !font.postscript_name.is_empty() {
+                            builtin_key(&font.postscript_name)
+                        } else {
+                            font.postscript_name.clone()
+                        },
+                    )
                     .attr("FontStyleName", &style);
                 if let Some(t) = font.type_name() {
                     x.attr("FontType", t);

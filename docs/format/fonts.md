@@ -151,6 +151,27 @@ in `Font/@Name` (`$ID/`, name, space, style) and in every `AppliedFont`
 that names the family; `Font/@FontFamily` and `Font/@Self` have the
 plain name. No family with flag 0 gets `$ID/`.
 
+**Built-in PostScript names.** The record stores no key flag for the
+PostScript name, but IDML exported by early builds of InDesign 7.0
+writes `$ID/` before every font's PostScript name. The build is the
+fourth number of the application version in the last session of the
+save history (`objects.md`, save history), and IDML's `product` names
+the same build in all 10 pairs of version 7.0:
+
+| Last session | Pairs | Fonts with `$ID/` |
+|---|---|---|
+| 7.0.0.355 | 1 (stale) | 114 of 114 |
+| 7.0.2.522 | 3 (one collection) | 78 of 78 |
+| 7.0.4.553 | 6 | 0 of 392 |
+
+The font data does not decide it: the three family objects of a 7.0.2.522
+document and a 7.0.4.553 document are byte for byte the same. The
+IDML files of DOM 7.0 without an INDD agree with their `product`
+build: 355 (4 files) and 522 (3) have `$ID/` on all their fonts, 535 (5)
+and 553 (16) on none. The converter writes `$ID/` for a last session of
+7.0 up to build 522; builds 523 to 534 have no sample. IDML of DOM 6.0
+has `$ID/` on all, some or none of the fonts of a document, but no pair.
+
 **Native family names.** IDML writes the native name in place of the
 family name when the family's writing script equals the script byte of
 the document users (`objects.md`, document users), the byte is not 0,
