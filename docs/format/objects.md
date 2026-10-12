@@ -66,13 +66,16 @@ are in `big-endian.md`.
 | 0x4C01 | UID list: sections |
 | 0xA443 | Document users: u32 count, then per user a flag byte, the name as an in-object string, u32 colour |
 | 0x1D8 | Save history: u32 count, then one record per session (below) |
-| 0x1630B | Label: u16 0x7B7B, u32 count *n*, then *n* pairs of key and value, each a flag byte (1 for a built-in key) and an in-object string |
+| 0x1630B | Label: u16 0x7B7B, u32 count *n*, then *n* pairs of key and value, each a flag byte and an in-object string |
 
 **Document label.** IDML writes `Document/Properties/Label` with one
-`KeyValuePair` (`Key`, `Value`) per stored pair, in stored order; the
-`$ID/` rule of the flag applies. Without the chunk there is no `Label`.
+`KeyValuePair` (`Key`, `Value`) per stored pair, in stored order, with
+the strings as stored. Without the chunk there is no `Label`.
 Evidence: 436 of the 438 trustworthy pairs whose IDML has a document
-label match (one differs, one has no chunk).
+label match (one differs, one has no chunk). The flag byte is 1 on 4
+keys in 4 pairs, all others 0; the 3 of these pairs whose IDML has a
+document label write the key without the `$ID/` prefix of built-in
+names.
 
 **Script byte of the user names.** The second byte of each user name's
 in-object string (the byte after the string tag) is a script code: 0
@@ -1062,6 +1065,24 @@ a child of class 0x227 (frame column). Chunk 0x220 of the column holds the
 frame list (class 0x228). Its chunk 0x205: u32 story, then a UID list of
 the columns of all threaded frames in order, which gives
 `PreviousTextFrame` and `NextTextFrame`.
+
+**Page item labels.** A page item's `Properties/Label` has the layout and
+rule of the document label: u16 0x7B7B, u32 count, then flagged key and
+value strings, written in stored order as stored. It is stored in:
+
+| Item | Chunk | Offset |
+|---|---|---|
+| Frames and shapes (class 0x6201) | 0x6204, after the shape code | 6 |
+| Groups (0x401) | 0x2C0B | 0 |
+| Buttons (0x1450C) and multi-state objects (0x145D8) | 0x14582 | 0 |
+
+Without these bytes the item has no `Label`. In `Properties` the `Label`
+comes first. Evidence: all 278 labelled items of these kinds in the
+IDMLs of all pairs (258 in 27 trustworthy pairs: 108 rectangles, 44 text
+frames, 40 lines, 36 groups, 18 buttons, 9 multi-state objects, 3
+polygons) have the bytes and match key for key; no item has the bytes
+without a `Label` in IDML. Flag 1 appears on labelled frames whose IDML
+keys and values have no `$ID/` prefix.
 
 ## Page item settings
 
@@ -2174,7 +2195,7 @@ than `[None]` have no `AnchoredObjectSetting`). A field has no
 **Not decoded.** Button behaviours (`GotoAnchorBehavior`,
 `GotoURLBehavior`, … in 193 buttons; chunk 0x15601 lists them), the
 `TimingSetting` of buttons and the `AnimationSetting` of multi-state
-objects, and page item labels (`Properties/Label`).
+objects.
 
 ## Placed InDesign pages (class 0x6607)
 

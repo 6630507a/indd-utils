@@ -240,6 +240,10 @@ pub mod chunk {
     pub const ITEM_NAME: u32 = 0x2C10;
     /// The same for a group.
     pub const GROUP_NAME: u32 = 0x418;
+    /// Group label: u16 0x7B7B, u32 count, flagged key and value strings.
+    pub const GROUP_LABEL: u32 = 0x2C0B;
+    /// Label of a button or multi-state object, as `GROUP_LABEL`.
+    pub const FORM_LABEL: u32 = 0x14582;
     /// u16, then u32 shape code: 1 line, 2 or 3 rectangle, 4 or 5
     /// oval, 0 or 6 to 8 polygon, 9 none.
     pub const ITEM_SHAPE: u32 = 0x6204;

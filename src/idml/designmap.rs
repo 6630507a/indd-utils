@@ -203,13 +203,7 @@ impl Writer<'_> {
         }
         if !doc.label.is_empty() || mathml {
             x.start("Properties");
-            if !doc.label.is_empty() {
-                x.start("Label");
-                for (k, v) in &doc.label {
-                    x.empty("KeyValuePair", &[("Key", k.clone()), ("Value", v.clone())]);
-                }
-                x.end();
-            }
+            Self::label(&mut x, &doc.label);
             if mathml {
                 x.start("AppliedMathMLSwatch")
                     .attr("type", "enumeration")

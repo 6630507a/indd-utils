@@ -184,6 +184,8 @@ pub struct PageItem {
     pub export: Option<ExportOptions>,
     /// Text on the item's path (chunk 0xB30A).
     pub text_paths: Vec<TextPath>,
+    /// Script label: key and value pairs, in stored order.
+    pub label: Vec<(String, String)>,
 }
 
 /// Text on the path of a shape or frame (class 0xB320). See
@@ -1225,6 +1227,10 @@ impl<'a> Reader<'a> {
                 })
                 .into_iter()
                 .collect(),
+            label: self.item_label(uid, cls).unwrap_or_else(|e| {
+                self.warn(format!("item {uid}: label left out: {e}"));
+                Vec::new()
+            }),
         }))
     }
 

@@ -289,13 +289,43 @@ impl<'a> Reader<'a> {
     }
 
     /// The label of an object (chunk 0x1630B of the document): u16 0x7B7B,
-    /// u32 count, then key and value of each pair as a flag byte (1 for a
-    /// built-in key) and an in-object string. See `docs/format/objects.md`.
+    /// u32 count, then key and value of each pair as a flag byte and an
+    /// in-object string. IDML writes the strings as stored, whatever the
+    /// flag. See `docs/format/objects.md`.
     pub(super) fn label(&self, uid: u32) -> Result<Vec<(String, String)>, Error> {
-        let Some(d) = self.chunk(uid, chunk::DOC_LABEL)? else {
-            return Ok(Vec::new());
+        match self.chunk(uid, chunk::DOC_LABEL)? {
+            Some(d) => self.label_at(&d, 0),
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// The label of a page item: in chunk 0x6204 after the shape code
+    /// (u16, u32) for frames and shapes, in chunk 0x2C0B for groups and in
+    /// chunk 0x14582 for buttons and multi-state objects, with the layout
+    /// of the document label. No label without the bytes.
+    /// See `docs/format/objects.md`, page item labels.
+    pub(super) fn item_label(
+        &self,
+        uid: u32,
+        cls: Option<u32>,
+    ) -> Result<Vec<(String, String)>, Error> {
+        let (id, at) = match cls {
+            Some(class::SPLINE_ITEM) => (chunk::ITEM_SHAPE, 6),
+            Some(class::GROUP) => (chunk::GROUP_LABEL, 0),
+            Some(class::BUTTON | class::MULTI_STATE) => (chunk::FORM_LABEL, 0),
+            _ => return Ok(Vec::new()),
         };
-        let mut c = self.cursor(&d);
+        match self.chunk(uid, id)? {
+            Some(d) if d.len() > at => self.label_at(&d, at),
+            _ => Ok(Vec::new()),
+        }
+    }
+
+    /// A label from byte `at` of `d`: u16 0x7B7B, u32 count, then flagged
+    /// key and value strings.
+    fn label_at(&self, d: &[u8], at: usize) -> Result<Vec<(String, String)>, Error> {
+        let mut c = self.cursor(d);
+        c.skip(at)?;
         if c.u16()? != 0x7B7B {
             return Err(Error::Corrupt("label of unknown layout".into()));
         }
@@ -304,7 +334,7 @@ impl<'a> Reader<'a> {
             return Err(Error::Corrupt(format!("{n} label pairs")));
         }
         (0..n)
-            .map(|_| Ok((c.name()?.idml(), c.name()?.idml())))
+            .map(|_| Ok((c.name()?.name, c.name()?.name)))
             .collect()
     }
 
@@ -792,6 +822,33 @@ mod tests {
         assert_eq!(applied_grid(None), Some(None));
         assert_eq!(applied_grid(Some(2u16.to_le_bytes().to_vec())), None);
         assert_eq!(applied_grid(Some(1u16.to_le_bytes().to_vec())), None);
+    }
+
+    #[test]
+    fn reads_a_shape_label_as_stored() {
+        let enc = Encoding::default();
+        let mut d = [1u16.to_le_bytes().as_slice(), &3u32.to_le_bytes()].concat();
+        d.extend_from_slice(&0x7B7Bu16.to_le_bytes());
+        d.extend_from_slice(&1u32.to_le_bytes());
+        d.extend(synthetic::flagged_string(enc, 1, "Key"));
+        d.extend(synthetic::flagged_string(enc, 0, "Value"));
+        let label = |d: Vec<u8>| {
+            let objects = [(
+                2,
+                class::SPLINE_ITEM,
+                synthetic::chunks(&[(chunk::ITEM_SHAPE, d)]),
+            )];
+            let bytes = synthetic::image(&objects);
+            let db = synthetic::database(&bytes, &objects);
+            Reader::new(&db)
+                .item_label(2, Some(class::SPLINE_ITEM))
+                .ok()
+        };
+        let pair = vec![("Key".to_string(), "Value".to_string())];
+        assert_eq!(label(d.clone()), Some(pair));
+        assert_eq!(label(d[..6].to_vec()), Some(Vec::new()));
+        d.truncate(d.len() - 1);
+        assert_eq!(label(d), None);
     }
 
     #[test]

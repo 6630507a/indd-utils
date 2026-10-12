@@ -318,12 +318,16 @@ impl Writer<'_> {
         x.end();
     }
 
-    pub(super) fn path_geometry(x: &mut Xml, paths: &[Path]) {
-        if paths.is_empty() {
+    /// A `Label` element with one `KeyValuePair` per pair; nothing
+    /// without pairs.
+    pub(super) fn label(x: &mut Xml, label: &[(String, String)]) {
+        if label.is_empty() {
             return;
         }
-        x.start("Properties");
-        Self::path_geometry_element(x, paths);
+        x.start("Label");
+        for (k, v) in label {
+            x.empty("KeyValuePair", &[("Key", k.clone()), ("Value", v.clone())]);
+        }
         x.end();
     }
 
@@ -933,11 +937,17 @@ impl Writer<'_> {
             tag
         };
         x.attrs_missing(self.observed(observed).iter());
-        if let ItemKind::Form(f) = &item.kind {
-            // A form field has the bounds of what it shows in place of
-            // paths (objects.md, form fields).
-            if let Some([l, t, r, b]) = f.bounds {
-                x.start("Properties").empty(
+        // A form field has the bounds of what it shows in place of paths
+        // (objects.md, form fields).
+        let (bounds, paths) = match &item.kind {
+            ItemKind::Form(f) => (f.bounds, &[][..]),
+            _ => (None, &item.paths[..]),
+        };
+        if !item.label.is_empty() || bounds.is_some() || !paths.is_empty() {
+            x.start("Properties");
+            Self::label(x, &item.label);
+            if let Some([l, t, r, b]) = bounds {
+                x.empty(
                     "PathBoundingBox",
                     &[
                         ("Left", num(l)),
@@ -946,10 +956,11 @@ impl Writer<'_> {
                         ("Bottom", num(b)),
                     ],
                 );
-                x.end();
             }
-        } else {
-            Self::path_geometry(x, &item.paths);
+            if !paths.is_empty() {
+                Self::path_geometry_element(x, paths);
+            }
+            x.end();
         }
         // A frame grid (objects.md, frame grids).
         if let ItemKind::TextFrame {
