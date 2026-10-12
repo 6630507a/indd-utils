@@ -118,8 +118,9 @@ the flags above: 1,247, 1,246 and 1,246 of 1,251 values in the
 trustworthy pairs of the corpus after 2026-10 (`HighlightHjViolations`,
 `HighlightCustomSpacing`, `HighlightSubstitutedGlyphs`), where it had
 56, 52 and 52 from the chunk alone. The exceptions are those files.
-`HighlightKeeps` and `HighlightSubstitutedFonts` have no chunk; they are
-left to the value files, which do not have them because they vary.
+`HighlightKeeps` and `HighlightSubstitutedFonts` have no chunk; the
+converter writes `false` and `true` as defaults (`idml-values.md`,
+defaults).
 
 ## Document setup (`DocumentPreference`)
 
@@ -504,7 +505,8 @@ IDML ends the base64 text with a line feed when its last line is full
 | | u16 at A+84 | `PrintPageOrientation`: 0 `Portrait`, 1 `Landscape` |
 | | u32 at A+104 | `Copies` |
 | | u8 at A+118 | `PrintBlankPages` |
-| String | page range text (empty, or text such as `1-2`) | not mapped: IDML `PageRange` is `AllPages` in every file |
+| | u16 at A+122 | `Properties/PageRange`: 0 `AllPages`; 2 none (below) |
+| String | page range text (empty, or text such as `1-2`) | not mapped |
 | B (30 bytes) | u8 at B+4 | `PrintSpreads` |
 | | u8 at B+6 | `ColorOutput`: 0 `CompositeGray`, 1 `CompositeRGB`, 2 `CompositeCMYK`, 5 `CompositeLeaveUnchanged` |
 | | u8 at B+10 | `TextAsBlack` |
@@ -558,6 +560,17 @@ Three attributes are derived from fields:
   `CompositeRGB` and `true` otherwise. Two of the 37 documents with
   `CompositeGray` have `false`.
 - `PrintToDisk` (above).
+
+The page range of `PrintPreference` is the u16 at A+122. With 0 the
+IDML has `Properties/PageRange` `AllPages` (enumeration), with 2 it has
+no `PageRange`: 1,240 and 12 of the 1,252 trustworthy pairs (DOM 11.4 to
+21.3 for the 12), and no other value occurs. The page range text does
+not follow it: it is empty in 1,062 of the 1,240, and holds
+other text (`1`, `2-3`, `All Pages`, `A5 V`) in the others and in all 12.
+The converter writes `AllPages` for 0 and nothing otherwise.
+
+`TilingType` has no field; the converter writes `Auto` as a default
+(`idml-values.md`, defaults).
 
 `BitmapPrinting` is not stored: no byte of any chunk of the preferences
 object (0x2202) or of the document object, nor of the print record,

@@ -136,6 +136,15 @@ When an element is not produced, its presence and all its values count as
 not reproduced. When a story's text differs, its text ranges cannot be
 lined up, so all their values count as not reproduced.
 
+Value coverage includes the **defaults**: values that no INDD field
+holds, written because nearly every reference IDML has them
+(`format/idml-values.md`, [defaults](format/idml-values.md#defaults)).
+Over the 1,252 trustworthy pairs the preference, document and language
+defaults of that table reproduce about 8,980 values (0.031 % of
+28,956,596) and write 59 that differ from the reference. The defaults
+of movies, behaviours and animation, which that table links to, add at
+most about 1,000 (their sample counts over all corpus files).
+
 #### Text ranges inside wrappers
 
 IDML puts some elements around text ranges or around text inside a range:

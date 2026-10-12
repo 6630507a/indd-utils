@@ -4,7 +4,8 @@ Some values the converter writes do not come from the INDD file. They are
 values that every IDML exported by InDesign in the corpus has, on the
 root styles and in the preferences. They are
 facts about InDesign's IDML output, not about the INDD format, and the
-evidence is the corpus IDML files alone.
+evidence is the corpus IDML files alone. Values that nearly every IDML
+has are listed under [Defaults](#defaults).
 
 Why they are written: IDML consumers apply their own defaults to
 attributes that are missing. When those defaults differ from InDesign's,
@@ -119,8 +120,8 @@ from DOM 20.4 also `PreferMathMLInEpubExport="false"` (all 99 and 72
 distinct corpus IDML files of those versions; none before). The
 converter writes them by the DOM version it writes, which the per-major
 blocks cannot express for 20.4. `AppliedMathMLFontSize` is `10` in 96
-of these files and `16` in 3 of DOM 20.2, with no field found, so it is
-left out.
+of these files and `16` in 3 of DOM 20.2, with no field found; the
+converter writes `10` as a default ([Defaults](#defaults)).
 
 ## Default numbering list
 
@@ -483,9 +484,9 @@ in 2), Korean (457 and 7) and Hebrew (74 and 1, `‘’` and `“”`). No
 stored value tells the exceptions apart; they follow the dictionary
 preferences of the exporting computer.
 
-These exceptions follow no stored value, so the converter writes no
-quotes for Japanese, Korean and Hebrew languages without the chunk
-(writing the common value would be a majority rule).
+These exceptions follow no stored value. The converter writes the
+common value, `''` and `""`, for Japanese, Korean and Hebrew languages
+without the chunk as a default ([Defaults](#defaults)).
 
 Colours are keyed by `Model`: every spot colour has
 `SpotInkAliasSpotColorReference="n"` (5,182 of 5,182 in the 1,689
@@ -740,3 +741,44 @@ sample typeset vertically shows this: two 2-byte fields of the
 preferences object (chunks 0xCD14 and 0xCD1C) are 1 there and 0 in all
 250 distinct little-endian public files. The print PDF cannot show which preference each
 field holds, so they are not mapped.
+
+## Defaults
+
+A **default** is a value the converter writes although no INDD field
+holds it and a few reference IDML files have another value. The
+converter writes it because it is the value of nearly every reference,
+and a missing attribute leaves a consumer to its own default, which can
+differ. Nothing stored tells the exceptions apart. Counts are over the
+1,252 trustworthy pairs (`docs/measurement.md`), for the versions given.
+
+| Element | Attribute | Value | DOM versions | Trustworthy references with the value |
+|---|---|---|---|---|
+| `PrintPreference` | `TilingType` | `Auto` | all | 1,251 of 1,252 (1 `AutoJustified`) |
+| `TextPreference` | `HighlightKeeps` | `false` | all | 1,248 of 1,252 |
+| `TextPreference` | `HighlightSubstitutedFonts` | `true` | all | 1,249 of 1,252 |
+| `ViewPreference` | `GuideSnaptoZone` | `4` | all | 1,247 of 1,252 (5 `2`) |
+| `ViewPreference` | `ShowNotes` | `true` | all | 1,233 of 1,252 |
+| `XMLExportPreference` | `ViewAfterExport` | `false` | all | 1,251 of 1,252 |
+| `DocumentPreference` | `SpreadHiddenVisibility` | `false` | 20.0 on | 75 of 76 |
+| `Document` | `AppliedMathMLFontSize` | `10` | 20.0 on | 75 of 76 (1 `16`, DOM 20.2) |
+| `Document` | `UntitledDocumentCount` | `1` | 12.0, 12.1 | 68 of 72 (4 `2`) |
+| `Language` named Korean, Japanese or Hebrew, without chunk 0x2D26 | `SingleQuotes`, `DoubleQuotes` | `''`, `""` | all | Korean 448 of 455, Japanese 128 of 130, Hebrew 65 of 66 languages |
+
+No reference before DOM 20.0 has `SpreadHiddenVisibility` or
+`AppliedMathMLFontSize`, and every one from 20.0 has both. Every DOM 12
+reference has `UntitledDocumentCount` (directly after `StoryList`), and
+no other. No stored field follows it; it most likely depends on the
+session of the exporting InDesign. The quotes of the three languages vary with the dictionary
+preferences of the exporting computer (language quotes, above).
+
+Defaults of other elements are documented with their objects:
+
+- Movies and sounds: `objects.md`, [movies and
+  sounds](objects.md#movies-and-sounds-classes-0x14801-and-0x14f01),
+  "Values without a stored field".
+- Button behaviours: `objects.md`, [button
+  behaviours](objects.md#button-behaviours), "Values with no stored
+  field".
+- Timing lists, motion presets and animation settings: `objects.md`,
+  [values without a stored
+  field](objects.md#values-without-a-stored-field).

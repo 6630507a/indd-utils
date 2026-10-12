@@ -4,7 +4,9 @@ What the converter does not decode yet, and why. Each row is an item
 that is open: no field was found, the value never varies, there is no
 sample, or a rule does not explain every document. Items decoded since
 are described in the page named in the "See" column; the rows here only
-record what is left of them.
+record what is left of them. Values with no field found that nearly
+every reference has are written as defaults and listed in
+`idml-values.md`, [defaults](idml-values.md#defaults).
 
 Counts are over the 1,251 trustworthy pairs of the corpus of 2026-10
 (`docs/measurement.md`), "files" over the distinct corpus files outside
@@ -29,22 +31,12 @@ Status values:
 
 | Item | Where | Files | Status | Content and reason | See |
 |---|---|---:|---|---|---|
-| `TilingType` | `PrintPreference` | 1,251 | open: never varies | `Auto`, except 1 `AutoJustified`; no field in chunk 0xA4C | `preferences.md` |
-| `PageRange` | `PrintPreference` | 1,251 | open: no field found | `AllPages` in 1,239, absent in 12; the stored page text does not separate the groups | `preferences.md` |
-| `HighlightKeeps`, `HighlightSubstitutedFonts` | `TextPreference` | 1,251 | open: no field found | `false` and `true` with 4 and 3 exceptions; no chunk in any file | `preferences.md` |
 | Highlight flags without chunks 0xCA62, 0xCAD3, 0xCAD4 | `TextPreference` | 5 | open: not explained | written `false`; 4 or 5 documents have every highlight on | `preferences.md`, flags |
 | `RulerOrigin` without chunk 0x808 | `ViewPreference` | 8 | open: no field found | `PageOrigin` in 8 of the 1,217 trustworthy pairs without the chunk (13 of 1,505 files); written `SpreadOrigin`, so the vertical guides of their later pages are off by the page widths (37 values in 3 pairs) | `preferences.md`, ruler origin |
-| `GuideSnaptoZone` | `ViewPreference` | 1,251 | open: no field found | `4`; 5 documents have `2` | |
-| `ShowNotes` | `ViewPreference` | 1,251 | open: no field found | 19 `false` | |
-| `ViewAfterExport` | `XMLExportPreference` | 1,251 | open: never varies | 1 `true` | |
-| `SpreadHiddenVisibility` | `DocumentPreference` (DOM 20 on) | 76 | open: never varies | 1 `true` | |
 | `ColumnDirection` without chunk 0x555 | `DocumentPreference`, `MarginPreference` | 2 | open: not explained | `Vertical` with a horizontal story orientation | `preferences.md`, margins and columns |
 | `WatermarkFontColor` without chunk 0x16344 | `WatermarkPreference` | 57 | open: no field found | `Red`, `LightBlue`, `Yellow`, `Cyan` | `preferences.md`, watermark |
 | Booklet print settings without chunk 0xAF2 | `PrintBookletPrintPreference` | 24 | open: two collections only | 88 values are the same in all 24, 10 follow the code; not written | `preferences.md`, print settings |
 | Grid, gutter, column guide and baseline frame grid colours, print marks, flattener resolutions and endnote separators of two Korean collections | preferences, spreads | about 97 | not needed | code 0x0101 with the values of a Roman edition: the IDML was exported by another installation than the one that saved the file | `preferences.md`, values of the exporting edition |
-| `AppliedMathMLFontSize` | `Document` (DOM 20 on) | 99 | open: no field found | `10`, but `16` in 3 DOM 20.2 files; left out | `idml-values.md`, document attributes |
-| Language quotes without chunk 0x2D26 | `Language` (Japanese, Korean, Hebrew) | 10 | open: no field found | `''` and `""` in most documents, `‘’` and `“”` in 2, 7 and 1; left out | `idml-values.md`, language quotes |
-| `UntitledDocumentCount` | `Document` (DOM 12) | 72 pairs | open: no field found | `1` in most DOM 12 IDML files, other numbers in a few | |
 | `DOMVersion` after an export by a later release | `Document` and every package part | 87 | not needed | the IDML's `product` names a later release than the last session of the save history: 68 sessions of 10.1 with 10.2, 16 of 13.0 with 13.1, 3 others. All but one of the 84 are on platform 3, but other platform-3 sessions of 10.1 and 13.0 have their own DOM version, and the IDML has the INDD's `xmpMM:InstanceID`, so nothing stored shows the export | `idml-values.md`, DOM version |
 
 ## Resources and text
