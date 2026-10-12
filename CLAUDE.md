@@ -69,8 +69,8 @@ separately (rule and evidence: `docs/measurement.md`).
   measurement with schema validation, the output diff against REV (default
   `origin/main`), the README numbers, the render comparison and the
   privacy checks, and freezes the results to `~/.cache/indd-frozen-LABEL/`.
-  It reuses conversions, validations and renders of earlier runs
-  (`~/.cache/indd-check/`), so a run takes about 3–4 minutes when little
+  It reuses conversions, comparisons, validations and renders of earlier runs
+  (`~/.cache/indd-check/`), so a run takes about 20 seconds when nothing
   changed. Local settings (DesignCraft binary, private documents, privacy
   pattern) are in `.thoughts/tools/check.json`. Details:
   `docs/measurement.md`, "Check runs". Run it in the background with
