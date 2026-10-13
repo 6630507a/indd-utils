@@ -92,7 +92,7 @@ Status values:
 | Images that name an old link object | image chunk 0x8C1B (class 0x8C01), InDesign 2.0 to 5.0 | 79 files | open: no pair | 762 images; the converter writes no `Contents` for them and returns their preview | `objects.md`, images that keep their file in their preview |
 | EPS `Contents` that differ | placed graphics | – | open: not examined | 18 of 515 | `objects.md`, graphics pasted without a link |
 | Anchored settings of some nested items | `AnchoredObjectSetting` | 3 | open: not examined | 388 values | `objects.md`, items inside an anchored item |
-| `FlexObject`, story links | page items | 20–28 pairs | open: not decoded | structures not written | |
+| `FlexObject` | page items | 20–28 pairs | open: not decoded | structures not written | |
 | `FilePath` of relinked media | `Movie`, `Sound` | 21 elements | not needed | 21 of 29 links were resolved to another file at export; `FilePath` names that file | `objects.md`, movies and sounds |
 | Controller attributes of movies | `ShowControls`, `ControllerSkin`, `ShowController` | 17 pairs | open: not explained | on every movie of DOM 8.0 to 13.1, on none of DOM 18.0; no sample between; written below DOM 18 | `objects.md`, movies and sounds |
 | Unidentified playback keys | chunk 0x14004 | 170 objects | open: never varies | u16 0x140FF (1 movie), u32 0x14007, u32 0x140FE (5 always), lists 3 to 6 (always empty), key 0x14009 after list 7 (1 movie); no IDML attribute differs with them | `objects.md`, movies and sounds |

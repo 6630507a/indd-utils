@@ -12,14 +12,13 @@ affiliated with or endorsed by Adobe.
 The converter turns INDD and INDT files into IDML packages. It writes
 the document structure, pages, page items, placed graphics, story text
 with its formatting, footnotes, endnotes, notes and tracked changes,
-styles, swatches, tables, hyperlinks and cross-references, fonts and XML
-structure. Its output validates against the IDML RelaxNG schemas, except
-for endnote markup and form fields anchored in text, which it writes as
-InDesign does and which the published schema rejects
-([`docs/measurement.md`](docs/measurement.md)).
-Some attributes are still missing (see
-[Current numbers](#current-numbers)), so the output is not yet the same
-as InDesign's own IDML export.
+styles, swatches, tables, hyperlinks and cross-references, interactive
+elements, fonts and XML structure. Its output validates against the IDML
+RelaxNG schemas, except for endnote markup and form fields anchored in
+text, which it writes as InDesign does and which the published schema
+rejects ([`docs/measurement.md`](docs/measurement.md)). Some attributes
+are still missing (see [Current numbers](#current-numbers)), so the
+output is not yet the same as InDesign's own IDML export.
 
 The format is undocumented. Every fact the converter relies on was found
 by comparing INDD files with IDML files exported from the same
@@ -98,10 +97,12 @@ Each area below links to the document that holds the evidence.
 | Pages and masters | Page bounds, transforms, applied master, margins and columns, page names, ruler guides, master names and prefixes, primary text frames. [`objects.md`](docs/format/objects.md) |
 | Page items and graphics | Text frames (with threading), rectangles, ovals, polygons, graphic lines and groups: transforms, paths, fill and stroke, corners, applied object style, text wrap, frame fitting, anchored objects, text on a path. EPS text. Placed images, PDF, EPS, SVG and InDesign pages with their bounds, clipping path settings and links; graphics pasted without a link keep their data. Transparency: blending, drop shadow, inner shadow, outer and inner glow and gradient feather where the samples tell the attributes apart. [`objects.md`](docs/format/objects.md), [`attributes.md`](docs/format/attributes.md), [`transparency.md`](docs/format/transparency.md) |
 | Text and typography | Story text, paragraph and character ranges with their local formatting (about 200 text attributes, among them font, size, leading, tracking, indents, spacing, hyphenation, keeps, tabs, rules, underline and strikethrough, shading, borders, bullets and numbering lists, nested styles, span columns, directions, OpenType and CJK settings, languages), story settings, text frame settings, text variables and their instances, footnotes and endnotes with their options, notes, tracked changes, ruby (text, type, alignment, position, offsets, scaling and spacing), kenten kind and size, warichu, tate-chu-yoko. [`attributes.md`](docs/format/attributes.md), [`text-variables.md`](docs/format/text-variables.md) |
-| Styles | Paragraph, character, object, cell and table styles, with style groups, `BasedOn` and `NextStyle`. [`objects.md`](docs/format/objects.md), [`tables.md`](docs/format/tables.md) |
+| Interactive elements | Buttons, check boxes, radio buttons, text boxes, combo boxes, signature fields and multi-state objects with their states; button behaviours; timing lists, motion presets and animation settings; placed movies and sounds. [`objects.md`](docs/format/objects.md) |
+| Articles and accessibility | Articles and their members, alternative text and tagging of page items and object styles, EPUB accessibility settings. [`objects.md`](docs/format/objects.md), [`idml-values.md`](docs/format/idml-values.md) |
+| Styles | Paragraph, character, object, cell and table styles, with style groups, `BasedOn` and `NextStyle`; transparency and text wrap of object styles; style mappings. [`objects.md`](docs/format/objects.md), [`tables.md`](docs/format/tables.md) |
 | Colours and swatches | Process, spot and registration colours, tints, gradients, inks, colour groups, the `None` swatch. [`objects.md`](docs/format/objects.md) |
 | Tables | Tables in stories and in cells: rows, columns, headers and footers, cells with spans, cell text, cell and table formatting, applied styles. [`tables.md`](docs/format/tables.md) |
-| Links and cross-references | Hyperlinks with text, paragraph and page item sources; text, page, URL and external page destinations; bookmarks; cross-reference sources and formats. [`hyperlinks.md`](docs/format/hyperlinks.md), [`cross-references.md`](docs/format/cross-references.md) |
+| Links and cross-references | Hyperlinks with text, paragraph and page item sources; text, page, URL and external page destinations; bookmarks; cross-reference sources and formats; story links with their options and placed-text import options. [`hyperlinks.md`](docs/format/hyperlinks.md), [`cross-references.md`](docs/format/cross-references.md) |
 | Fonts | Font families and fonts with their names (including built-in and native-script names), styles, types, PostScript names and Typekit IDs; missing fonts; composite fonts and their entries. [`fonts.md`](docs/format/fonts.md) |
 | CJK | Kinsoku and mojikumi tables (with the spacing of custom mojikumi tables), composite fonts, grid alignment of paragraphs, layout grids of pages, named grids, frame grids and their stories. [`objects.md`](docs/format/objects.md), [`fonts.md`](docs/format/fonts.md) |
 | XML | Tags, the XML structure with elements placed in story text, the backing story. [`xml.md`](docs/format/xml.md) |
@@ -121,17 +122,19 @@ Reasons:
 
 | Feature | Reason |
 |---|---|
-| Conditional text, buttons and forms | Not in public samples |
+| Conditional text | Not in public samples |
+| Constant flags of check boxes, radio buttons, text boxes, combo boxes and signature fields (`ReadOnly`, `PrintableInPdf`, …) | Not provable (fewer than 10 files each) |
 | Ruby and kenten fonts, colours, weights and Y scales; kenten placement and characters; warichu characters before and after a break | Not provable (every sample has the default value) |
-| XML attributes, comments, processing instructions, DTDs; XML elements that cross paragraphs | Not in public samples (left out with a warning) |
-| Hyperlink sources that cross a style range | Not in public samples with an IDML (left out with a warning) |
+| XML attributes, comments, processing instructions, DTDs | Not in public samples (left out with a warning) |
+| Hyperlink sources that span paragraphs or hold an anchored object | The IDML schema has no place for them (left out with a warning) |
 | Most transparency effects (bevel, satin, feathers other than gradient, some glow values), drop shadow offsets | Not provable |
 | Which table border attribute is which side (all four sides are equal in every sample) | Not provable |
 | Font `Status`, variable font design axes | Not provable (`Status` depends on the exporting machine) |
 | Many attributes with one value in nearly every sample (`Visible`, `Locked`, `Name` of page items, …) | Not provable |
 | Tables from InDesign 9.2 | Not started (different layout) |
 | Document preferences from InDesign 3.0–7.5, object style text frame settings from 4.0 | Not started (different layouts) |
-| Transparency of placed graphics and object styles | Not started |
+| Transparency of placed graphics | Not started |
+| Flex objects | Not started |
 | Index title in languages other than Japanese or Chinese without stored index options, endnote title without stored endnote options; `BitmapPrinting` of the print settings | Not provable (they follow the exporting application or computer) |
 | QR codes | Not started |
 
