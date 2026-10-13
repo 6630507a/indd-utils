@@ -62,6 +62,18 @@ InDesign 18–21, little-endian. Some IDMLs show a different save than their
 INDD; compare.py marks those pairs stale and reports trustworthy pairs
 separately (rule and evidence: `docs/measurement.md`).
 
+## Disk space
+
+The disk is shared with other projects. At the end of each batch, run
+`df -h /` and `du -sh ~/.cache/indd-* ~/.cache/render-compare-*`, and
+`trash-put` this project's files that no finished or planned work needs:
+task scratch folders (`~/.cache/indd-<task>`), `render-compare-*` runs
+other than the latest, `~/.cache/indd-tmp/` contents, and folders of
+`~/.cache/indd-check/out/` for binaries no revision in `revs.tsv` still
+uses. Keep `indd-check` (current binary), `indd-diff`, `indd-schemas`
+and the `*-fetch` downloads. Never touch other projects' files. The owner
+empties the trash.
+
 ## Commands
 
 - `python3 -I tools/check.py LABEL [--base REV]`: the check for a finished
