@@ -70,9 +70,10 @@ The disk is shared with other projects. At the end of each batch, run
 task scratch folders (`~/.cache/indd-<task>`), `render-compare-*` runs
 other than the latest, `~/.cache/indd-tmp/` contents, and folders of
 `~/.cache/indd-check/out/` for binaries no revision in `revs.tsv` still
-uses. Keep `indd-check` (current binary), `indd-diff`, `indd-schemas`
-and the `*-fetch` downloads. Never touch other projects' files. The owner
-empties the trash.
+uses. Keep `indd-check` (current binary), `indd-diff`, `indd-schemas`,
+the `*-fetch` downloads, and every path the latest
+`.thoughts/handoff-*.md` refers to. Never touch other projects' files.
+The owner empties the trash.
 
 ## Commands
 
